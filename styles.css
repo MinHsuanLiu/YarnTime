@@ -1678,3 +1678,104 @@ select{
 .project-overline{
   text-rendering:optimizeLegibility;
 }
+
+
+/* =========================================================
+   v18.1 — Mobile viewport containment
+   修正 iPhone 上下滑時整頁可左右漂移 / 歪掉
+   ========================================================= */
+
+html{
+  width:100%;
+  max-width:100%;
+  overflow-x:hidden;
+  overscroll-behavior-x:none;
+}
+
+body{
+  width:100%;
+  max-width:100%;
+  overflow-x:hidden;
+  overscroll-behavior-x:none;
+  position:relative;
+}
+
+/* iOS 支援 clip 時再進一步切掉任何超出 viewport 的裝飾 */
+@supports (overflow: clip){
+  html,body{
+    overflow-x:clip;
+  }
+}
+
+.app-shell,
+.overlay-view,
+.modal-backdrop,
+.modal-sheet,
+.topbar,
+.active-card,
+.project-list,
+.project-card,
+.project-row,
+.project-main,
+.project-actions,
+.subsection,
+.seller-pricing-section,
+.seller-input-grid,
+.resume-photo-library,
+.resume-photo-grid,
+.timeline-list,
+.timeline-item{
+  min-width:0;
+  max-width:100%;
+}
+
+/* 圖片和 canvas 絕不把手機頁面撐寬 */
+img,
+canvas,
+svg,
+video{
+  max-width:100%;
+}
+
+/* 長文字、毛線品名、網址不能把容器撐出螢幕 */
+.project-title,
+.project-journal-meta,
+.project-info-item strong,
+.timeline-card,
+.timeline-note,
+.note-text,
+.seller-price-gap,
+.resume-footnote,
+p{
+  overflow-wrap:anywhere;
+  word-break:break-word;
+}
+
+/* v15 的作品操作區改用可用空間，不再用容易產生 1~2px overflow 的固定 width calc */
+.identity-project-card .project-actions{
+  width:auto !important;
+  max-width:calc(100% - 83px) !important;
+}
+
+@media(max-width:430px){
+  .identity-project-card .project-actions{
+    width:auto !important;
+    max-width:calc(100% - 75px) !important;
+  }
+}
+
+/* 表單 grid 在非常窄的 iPhone 上也不硬撐 */
+@media(max-width:350px){
+  .seller-input-grid,
+  .session-edit-grid,
+  .resume-mode-note{
+    grid-template-columns:1fr !important;
+  }
+}
+
+/* 主要可捲動區只鼓勵垂直手勢 */
+.app-shell,
+.overlay-view,
+.modal-sheet{
+  touch-action:pan-y;
+}

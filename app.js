@@ -1511,11 +1511,14 @@ function renderDetail(){
   sellerSection.classList.toggle("hidden",!isSeller);
   if(isSeller){
     const seller=p.sellerPricing||{};
-    document.getElementById("sellerHourlyRateInput").value=seller.hourlyRate??"";
-    document.getElementById("sellerPackagingInput").value=seller.packaging??"";
-    document.getElementById("sellerFeeRateInput").value=seller.feeRate??"";
-    document.getElementById("sellerValueAddInput").value=seller.valueAdd??"";
-    document.getElementById("sellerActualPriceInput").value=seller.actualPrice??"";
+    const sellerSectionFocused=sellerSection.contains(document.activeElement);
+    if(!sellerSectionFocused){
+      document.getElementById("sellerHourlyRateInput").value=seller.hourlyRate??"";
+      document.getElementById("sellerPackagingInput").value=seller.packaging??"";
+      document.getElementById("sellerFeeRateInput").value=seller.feeRate??"";
+      document.getElementById("sellerValueAddInput").value=seller.valueAdd??"";
+      document.getElementById("sellerActualPriceInput").value=seller.actualPrice??"";
+    }
     renderSellerPricingResult(p);
   }
 
@@ -1659,6 +1662,34 @@ function renderStats(){
       ${total>0 && sessions.length===0?`<p class="stats-footnote">逐次製作統計會從 v8 開始累積；之前的總工時仍完整保留。</p>`:""}
     </section>`;
 }
+function updateDetailLiveOnly(){
+  if(!detailProjectId) return;
+  const p=getProject(detailProjectId); if(!p) return;
+
+  const timer=document.getElementById("detailTimer");
+  const total=document.getElementById("detailTotal");
+  const current=document.getElementById("detailCurrentSegment");
+  if(timer) timer.textContent=fmt(elapsedMs(p));
+  if(total) total.textContent=fmtHuman(elapsedMs(p));
+  if(current) current.textContent=fmt(currentSessionMs(p));
+
+  const warning=document.getElementById("longTimerWarning");
+  if(warning){
+    const currentMs=currentSessionMs(p);
+    const showLong=p.isRunning && currentMs>=4*3600000;
+    warning.classList.toggle("hidden",!showLong);
+    if(showLong){
+      const text=document.getElementById("longTimerWarningText");
+      if(text) text.textContent=`本次已計時 ${fmtHuman(currentMs)}。如果其實早就停工，可以先暫停，再點製作紀錄修正。`;
+    }
+  }
+
+  // 價格結果中的「總工時」會跟計時同步，但不重建輸入框。
+  if(p.projectInfo?.purpose==="販售"){
+    renderSellerPricingResult(p);
+  }
+}
+
 function renderAll(){ renderProjects(); renderActive(); renderDetail(); renderStats(); }
 
 const modalStack=[];
@@ -2108,10 +2139,10 @@ function readSellerPricingInputs(){
 ["sellerHourlyRateInput","sellerPackagingInput","sellerFeeRateInput","sellerValueAddInput","sellerActualPriceInput"].forEach(id=>{
   document.getElementById(id).addEventListener("input",()=>{
     const p=getProject(detailProjectId); if(!p) return;
-    const original=p.sellerPricing;
+    // v18.1: 輸入時直接同步到目前作品，避免計時刷新把文字洗掉。
     p.sellerPricing=readSellerPricingInputs();
+    saveState();
     renderSellerPricingResult(p);
-    p.sellerPricing=original;
   });
 });
 document.getElementById("saveSellerPricingBtn").onclick=()=>{
@@ -2513,7 +2544,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:18,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:18.1,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
@@ -2569,7 +2600,8 @@ setInterval(()=>{
     const p=getProject(el.dataset.timeId); if(p) el.textContent=fmt(elapsedMs(p));
   });
   renderActive();
-  if(detailProjectId) renderDetail();
+  // v18.1: 不再每秒重畫整個作品詳情，避免輸入框、捲動位置被重設。
+  updateDetailLiveOnly();
 },1000);
 
 document.addEventListener("visibilitychange", ()=>{

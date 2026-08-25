@@ -1,4 +1,4 @@
-# YarnTime PWA v18 — Rounded Brand Type
+# YarnTime PWA v18.1 — Usability Fix
 
 這是一個可安裝到 iPhone 主畫面的網頁 App（PWA）。
 
@@ -558,3 +558,40 @@ YarnTime 反推：
 - app.js
 - styles.css
 - sw.js
+
+
+## v18.1 — 實機使用修正版
+
+### App Icon
+- 暫時改用 App 底部「作品」頁籤的毛線圈圈圖示。
+- 米白底 + YarnTime 橘色線條。
+- 不新增其他圖案或裝飾。
+- 之後正式 Icon 會先提供候選圖讓使用者選定，再更新 App。
+
+### 修正：售價透視欄位無法輸入
+原因：
+- 正在計時時，作品詳情原本每秒整頁重新 render。
+- 因此輸入中的文字會每秒被資料狀態覆蓋。
+
+修正：
+- 每秒只更新計時數字與必要的即時數據。
+- 不再重建整個作品詳情。
+- 售價欄位輸入會即時同步保存。
+- 正在輸入時不會被其他 render 覆蓋。
+
+### 修正：iPhone 滑動畫面會左右歪
+- 鎖定整體頁面寬度為手機 viewport。
+- 禁止整頁橫向 overflow。
+- 圖片、Canvas、SVG、表單與作品列表不可撐出畫面。
+- 長文字可自動斷行。
+- 主要捲動區以垂直 pan 為主。
+- 修正作品列表按鈕區可能產生的數 pixel 橫向 overflow。
+
+## GitHub 更新
+覆蓋：
+- index.html
+- app.js
+- styles.css
+- sw.js
+- icon-192.png
+- icon-512.png
