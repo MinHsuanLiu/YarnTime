@@ -1779,3 +1779,106 @@ p{
 .modal-sheet{
   touch-action:pan-y;
 }
+
+
+/* =========================================================
+   v19 — Nunito Brand Typography
+   英文 / 數字全部統一 Nunito；中文自動 fallback 到 PingFang TC / 微軟正黑體
+   ========================================================= */
+
+:root{
+  --yt-brand-font:
+    "Nunito",
+    "PingFang TC",
+    "Microsoft JhengHei",
+    -apple-system,
+    BlinkMacSystemFont,
+    system-ui,
+    sans-serif;
+}
+
+/* 全 App 統一字體堆疊：
+   Nunito 有英數 glyph；遇到中文時瀏覽器自然往後 fallback。 */
+html,
+body,
+button,
+input,
+textarea,
+select,
+option{
+  font-family:var(--yt-brand-font) !important;
+}
+
+/* Logo */
+.yarntime-logo-word,
+.yarntime-logo-word strong,
+.yarntime-logo-word b{
+  font-family:var(--yt-brand-font) !important;
+}
+
+.yarntime-logo-word strong{
+  font-weight:800 !important;
+}
+
+.yarntime-logo-word b{
+  font-weight:600 !important;
+}
+
+/* 所有品牌英文小標 */
+.active-now-label,
+.section-kicker,
+.project-overline,
+.eyebrow,
+.seller-badge,
+.brand-lockup,
+.resume-sheet .eyebrow,
+.stats-summary .eyebrow,
+.completed-conclusion .eyebrow{
+  font-family:var(--yt-brand-font) !important;
+}
+
+/* 數字：統一 Nunito，但保留 tabular numerals，計時器不會左右跳 */
+.big-timer,
+.detail-total-timer,
+.project-time,
+.current-segment-card strong,
+.info-card strong,
+.metric-card strong,
+.stat-value,
+.seller-result-main strong,
+.seller-hourly-main strong,
+.seller-result-card strong,
+.pricing-level strong,
+.session-duration,
+.resume-mode-note strong{
+  font-family:var(--yt-brand-font) !important;
+  font-variant-numeric:tabular-nums;
+}
+
+/* Nunito 本身比較圓，因此微調幾個字重，避免整體太胖 */
+.active-now-label,
+.section-kicker,
+.project-overline,
+.eyebrow{
+  font-weight:800 !important;
+}
+
+button{
+  font-weight:700;
+}
+
+input,
+textarea,
+select{
+  font-weight:500;
+}
+
+/* 保持正文柔和易讀 */
+p,
+.note-text,
+.project-journal-meta,
+.session-date small,
+.timeline-card small,
+.resume-footnote{
+  font-weight:500;
+}

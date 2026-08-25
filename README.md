@@ -1,4 +1,4 @@
-# YarnTime PWA v18.1 — Usability Fix
+# YarnTime PWA v19 — Nunito Typography
 
 這是一個可安裝到 iPhone 主畫面的網頁 App（PWA）。
 
@@ -595,3 +595,47 @@ YarnTime 反推：
 - sw.js
 - icon-192.png
 - icon-512.png
+
+
+## v19 — 全 App 英文字體正式統一為 Nunito
+
+### 統一範圍
+- YarnTime Logo
+- NOW MAKING
+- MY MAKES
+- FINISHED MAKE
+- PHOTO JOURNAL
+- 所有英文標籤
+- 英文按鈕
+- 計時數字
+- 工時 / 價格數字
+- 售價透視
+- 完成履歷卡
+- 多頁作品回顧
+- 回顧影片 Canvas 文字
+
+### 中文
+- Nunito 不含完整繁體中文字形，因此中文會自然使用：
+  - iPhone / iPad：PingFang TC
+  - Windows：Microsoft JhengHei
+- 因此不會把中文字也換成奇怪花體。
+
+### 顯示策略
+- 有網路時從 Google Fonts 載入 Nunito。
+- 若字型尚未載入或暫時離線，會 fallback 到裝置系統圓體 / 系統字體。
+- 生成履歷卡、照片回顧與影片前會先等待 Nunito 載入，避免 App 介面和輸出圖片字型不同。
+
+### 此版保留 v18.1 修正
+- 售價透視可正常輸入
+- 計時不再每秒重畫整個作品詳情
+- 手機畫面限制在 viewport，不會左右漂移
+- App icon 暫時保留底部「作品」毛線圈圈
+
+## GitHub 更新
+覆蓋：
+- index.html
+- app.js
+- styles.css
+- sw.js
+
+icon-192.png / icon-512.png 這次沒有再更動。

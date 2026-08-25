@@ -173,6 +173,24 @@ function roundPrice(n){
   if(!Number.isFinite(n) || n<=0) return 0;
   return Math.ceil(n/10)*10;
 }
+
+const BRAND_FONT_STACK='"Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
+
+async function ensureBrandFont(){
+  try{
+    if(document.fonts?.load){
+      await Promise.all([
+        document.fonts.load('400 16px "Nunito"'),
+        document.fonts.load('600 16px "Nunito"'),
+        document.fonts.load('700 16px "Nunito"'),
+        document.fonts.load('800 16px "Nunito"'),
+        document.fonts.load('900 16px "Nunito"')
+      ]);
+    }
+  }catch(e){
+    console.warn("Nunito font load fallback",e);
+  }
+}
 function calcSellerPricing(p){
   const info=p.projectInfo||{};
   const s=p.sellerPricing||{};
@@ -661,6 +679,7 @@ async function collectProgressPhotos(p){
   }));
 }
 async function buildResumeCard(projectId){
+  await ensureBrandFont();
   const p=getProject(projectId);
   if(!p) throw new Error("project");
   const canvas=document.getElementById("resumeCanvas");
@@ -674,21 +693,21 @@ async function buildResumeCard(projectId){
 
   // Header
   ctx.fillStyle=accent;
-  ctx.font='800 26px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+  ctx.font='800 26px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
   ctx.fillText("YARNTIME · HANDMADE JOURNAL",72,78);
 
   ctx.fillStyle=ink;
   let titleSize=64;
-  ctx.font=`800 ${titleSize}px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif`;
+  ctx.font=`800 ${titleSize}px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif`;
   let titleLines=wrapCanvasText(ctx,p.name,936,2);
   while(titleLines.some(line=>ctx.measureText(line).width>936) && titleSize>48){
-    titleSize-=2; ctx.font=`800 ${titleSize}px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif`; titleLines=wrapCanvasText(ctx,p.name,936,2);
+    titleSize-=2; ctx.font=`800 ${titleSize}px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif`; titleLines=wrapCanvasText(ctx,p.name,936,2);
   }
   titleLines.forEach((line,i)=>ctx.fillText(line,72,156+i*(titleSize+10)));
   const titleBottom=156+(titleLines.length-1)*(titleSize+10);
 
   ctx.fillStyle=muted;
-  ctx.font='500 27px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+  ctx.font='500 27px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
   ctx.fillText(`${p.type}   ${formatCardDate(p.createdAt)} → ${formatCardDate(p.completedAt||Date.now())}`,72,titleBottom+54);
 
   // Hero image
@@ -707,9 +726,9 @@ async function buildResumeCard(projectId){
     try{ drawCoverImage(ctx,await loadImageFromBlob(heroBlob),heroX,heroY,heroW,heroH,34); }
     catch(e){}
   }else{
-    ctx.fillStyle=accent; ctx.font='700 76px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif'; ctx.textAlign="center";
+    ctx.fillStyle=accent; ctx.font='700 76px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif'; ctx.textAlign="center";
     ctx.fillText("🧶",W/2,heroY+205);
-    ctx.fillStyle=muted; ctx.font='600 28px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+    ctx.fillStyle=muted; ctx.font='600 28px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
     ctx.fillText("我的手作作品",W/2,heroY+270); ctx.textAlign="left";
   }
 
@@ -724,16 +743,16 @@ async function buildResumeCard(projectId){
     const x=72+i*(metricW+gap);
     ctx.fillStyle=card; canvasRoundRect(ctx,x,metricsY,metricW,metricH,24); ctx.fill();
     ctx.strokeStyle=line; ctx.lineWidth=2; canvasRoundRect(ctx,x,metricsY,metricW,metricH,24); ctx.stroke();
-    ctx.fillStyle=muted; ctx.font='600 23px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif'; ctx.fillText(label,x+24,metricsY+40);
-    ctx.fillStyle=i===0?accent:ink; ctx.font='800 34px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+    ctx.fillStyle=muted; ctx.font='600 23px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillText(label,x+24,metricsY+40);
+    ctx.fillStyle=i===0?accent:ink; ctx.font='800 34px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
     const valueText=value.length>12?value.slice(0,12):value;
     ctx.fillText(valueText,x+24,metricsY+94);
   });
 
   // Progress photo strip
   const stripTitleY=metricsY+194;
-  ctx.fillStyle=ink; ctx.font='800 31px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif'; ctx.fillText("從一針一線到完成",72,stripTitleY);
-  ctx.fillStyle=muted; ctx.font='500 22px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif'; ctx.fillText("每一次紀錄，都是作品長大的一點點。",72,stripTitleY+38);
+  ctx.fillStyle=ink; ctx.font='800 31px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillText("從一針一線到完成",72,stripTitleY);
+  ctx.fillStyle=muted; ctx.font='500 22px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillText("每一次紀錄，都是作品長大的一點點。",72,stripTitleY+38);
 
   const progress=await collectProgressPhotos(p);
   const tileY=stripTitleY+68, tileGap=16, tileW=(936-tileGap*2)/3, tileH=174;
@@ -744,19 +763,19 @@ async function buildResumeCard(projectId){
     if(item){
       try{ drawCoverImage(ctx,await loadImageFromBlob(item.blob),x,tileY,tileW,tileH,20); }catch(e){}
       ctx.fillStyle="rgba(62,51,43,.72)"; canvasRoundRect(ctx,x+12,tileY+12,48,34,17); ctx.fill();
-      ctx.fillStyle="#FFFFFF"; ctx.font='800 18px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif'; ctx.textAlign="center";
+      ctx.fillStyle="#FFFFFF"; ctx.font='800 18px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif'; ctx.textAlign="center";
       const progressNo=item.lap ? ((p.laps||[]).findIndex(l=>l.id===item.lap.id)+1) : (i+1);
       ctx.fillText(String(Math.max(1,progressNo)).padStart(2,"0"),x+36,tileY+35); ctx.textAlign="left";
     }else{
-      ctx.fillStyle="#D7C7B8"; ctx.font='700 28px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif'; ctx.textAlign="center";
+      ctx.fillStyle="#D7C7B8"; ctx.font='700 28px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif'; ctx.textAlign="center";
       ctx.fillText("·",x+tileW/2,tileY+96); ctx.textAlign="left";
     }
   }
 
   // Footer
-  ctx.fillStyle=muted; ctx.font='600 21px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+  ctx.fillStyle=muted; ctx.font='600 21px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
   ctx.fillText("Made slowly, stitch by stitch.",72,1310);
-  ctx.textAlign="right"; ctx.fillStyle=accent; ctx.font='800 22px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+  ctx.textAlign="right"; ctx.fillStyle=accent; ctx.font='800 22px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
   ctx.fillText("YarnTime",1008,1310); ctx.textAlign="left";
 
   latestResumeBlob=await new Promise(resolve=>canvas.toBlob(resolve,"image/png",1));
@@ -781,22 +800,22 @@ function drawPhotoAlbumHeader(ctx,p,pageNo,totalPages){
   ctx.fillRect(0,0,1080,1350);
 
   ctx.fillStyle="#D8892B";
-  ctx.font='800 24px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+  ctx.font='800 24px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
   ctx.fillText("YARNTIME · PHOTO JOURNAL",64,66);
 
   ctx.textAlign="right";
   ctx.fillStyle="#8C7B6D";
-  ctx.font='650 18px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+  ctx.font='650 18px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
   ctx.fillText(`${String(pageNo).padStart(2,"0")} / ${String(totalPages).padStart(2,"0")}`,1016,66);
   ctx.textAlign="left";
 
   ctx.fillStyle="#3E332B";
-  ctx.font='800 38px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+  ctx.font='800 38px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
   const titleLine=wrapCanvasText(ctx,p.name,760,1)[0]||p.name;
   ctx.fillText(titleLine,64,116);
 
   ctx.fillStyle="#8C7B6D";
-  ctx.font='550 18px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+  ctx.font='550 18px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
   ctx.fillText(`${formatCardDate(p.createdAt)} → ${formatCardDate(p.completedAt||Date.now())} · ${fmtHuman(elapsedMs(p))}`,64,150);
 }
 
@@ -815,17 +834,18 @@ async function drawPhotoAlbumTile(ctx,item,x,y,w,h){
   ctx.fillRect(x,y+h-overlayH,w,overlayH);
 
   ctx.fillStyle="#FFFDFC";
-  ctx.font='750 21px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+  ctx.font='750 21px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
   const title=wrapCanvasText(ctx,item.title||"作品進度",w-32,1)[0]||"作品進度";
   ctx.fillText(title,x+16,y+h-46);
 
   ctx.fillStyle="#DED1C6";
-  ctx.font='550 14px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+  ctx.font='550 14px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
   const subtitle=wrapCanvasText(ctx,item.subtitle||"",w-32,1)[0]||"";
   ctx.fillText(subtitle,x+16,y+h-20);
 }
 
 async function buildPhotoAlbum(projectId,onProgress=()=>{}){
+  await ensureBrandFont();
   const p=getProject(projectId);
   if(!p || !p.isCompleted) throw new Error("project");
 
@@ -878,12 +898,12 @@ async function buildPhotoAlbum(projectId,onProgress=()=>{}){
     }
 
     ctx.fillStyle="#8C7B6D";
-    ctx.font='550 16px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+    ctx.font='550 16px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
     ctx.fillText("Made slowly, stitch by stitch.",64,1318);
 
     ctx.textAlign="right";
     ctx.fillStyle="#D8892B";
-    ctx.font='800 18px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+    ctx.font='800 18px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
     ctx.fillText("YarnTime",1016,1318);
     ctx.textAlign="left";
 
@@ -1037,7 +1057,7 @@ function drawRecapFrame(ctx,W,H,slide,progress){
   const ink="#3E332B",muted="#8C7B6D",accent="#D8892B",soft="#F1E6D9",card="#FFFDFC";
 
   ctx.fillStyle=accent;
-  ctx.font='800 20px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+  ctx.font='800 20px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
   ctx.fillText("YARNTIME · HANDMADE JOURNAL",44,62);
 
   if(slide.kind==="summary"){
@@ -1052,19 +1072,19 @@ function drawRecapFrame(ctx,W,H,slide,progress){
       ctx.fill();
     }else{
       ctx.fillStyle=soft; canvasRoundRect(ctx,44,108,632,660,34); ctx.fill();
-      ctx.font='700 84px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+      ctx.font='700 84px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
       ctx.textAlign="center"; ctx.fillStyle=accent; ctx.fillText("🧶",360,420); ctx.textAlign="left";
     }
 
     ctx.fillStyle=card; canvasRoundRect(ctx,44,804,632,370,30); ctx.fill();
-    drawRecapText(ctx,slide.title,76,880,568,'800 48px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif',ink);
-    ctx.fillStyle=accent; ctx.font='800 26px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+    drawRecapText(ctx,slide.title,76,880,568,'800 48px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif',ink);
+    ctx.fillStyle=accent; ctx.font='800 26px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
     ctx.fillText("完成 ✨",76,980);
-    ctx.fillStyle=ink; ctx.font='800 34px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+    ctx.fillStyle=ink; ctx.font='800 34px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
     ctx.fillText(slide.time,76,1032);
-    ctx.fillStyle=muted; ctx.font='600 23px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+    ctx.fillStyle=muted; ctx.font='600 23px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
     ctx.fillText(`${slide.duration} · ${slide.count} 次製作紀錄`,76,1082);
-    ctx.fillStyle=muted; ctx.font='600 18px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+    ctx.fillStyle=muted; ctx.font='600 18px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
     ctx.fillText("Made slowly, stitch by stitch.",76,1138);
     return;
   }
@@ -1075,18 +1095,18 @@ function drawRecapFrame(ctx,W,H,slide,progress){
     drawRecapPhoto(ctx,slide.image,44,photoY,632,photoH,34,zoom);
   }else{
     ctx.fillStyle=soft; canvasRoundRect(ctx,44,photoY,632,photoH,34); ctx.fill();
-    ctx.font='700 78px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+    ctx.font='700 78px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
     ctx.textAlign="center"; ctx.fillStyle=accent; ctx.fillText("🧶",360,480); ctx.textAlign="left";
   }
 
   ctx.fillStyle="rgba(255,253,252,.96)";
   canvasRoundRect(ctx,44,924,632,268,30); ctx.fill();
-  drawRecapText(ctx,slide.title,76,998,568,'800 42px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif',ink);
+  drawRecapText(ctx,slide.title,76,998,568,'800 42px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif',ink);
   ctx.fillStyle=muted;
-  ctx.font='600 22px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+  ctx.font='600 22px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
   ctx.fillText(slide.subtitle||"",76,1090);
   ctx.fillStyle=accent;
-  ctx.font='800 28px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+  ctx.font='800 28px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif';
   ctx.fillText(slide.time||"",76,1142);
 }
 async function buildRecapVideo(projectId,onProgress=()=>{}){
@@ -2544,7 +2564,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:18.1,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:19,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
