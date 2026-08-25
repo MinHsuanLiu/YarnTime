@@ -19,7 +19,7 @@
         <div class="eyebrow">YarnTime</div>
         <h1>我的毛線工時</h1>
       </div>
-      <button id="addProjectBtn" class="icon-btn" aria-label="新增作品">＋</button>
+      <button id="addProjectBtn" class="add-btn" aria-label="新增作品"><span class="add-btn-plus">＋</span><span>新增</span></button>
     </header>
 
     <main>
@@ -80,6 +80,22 @@
           <option>其他</option>
         </select>
       </label>
+
+      <div class="photo-field">
+        <div class="field-title-row">
+          <span>作品照片</span>
+          <small>選填</small>
+        </div>
+        <button id="projectPhotoBtn" type="button" class="photo-picker">
+          <div id="projectPhotoPreview" class="photo-preview">
+            <span class="photo-plus">＋</span>
+            <span>從相簿選擇或拍照</span>
+          </div>
+        </button>
+        <input id="projectPhotoInput" class="hidden-file-input" type="file" accept="image/*" />
+        <button id="clearProjectPhotoBtn" type="button" class="photo-remove-link hidden">移除選取</button>
+      </div>
+
       <label>備註
         <textarea id="projectNoteInput" rows="3" placeholder="線材、針號、顏色…"></textarea>
       </label>
@@ -98,23 +114,52 @@
         </div>
         <button class="text-btn" data-close="detailModal">關閉</button>
       </div>
-      <div id="detailTimer" class="big-timer">00:00:00</div>
+      <div class="detail-photo-section">
+        <button id="detailPhotoCard" type="button" class="detail-photo-card" aria-label="新增或更換作品照片">
+          <img id="detailPhotoImg" class="detail-photo-img hidden" alt="作品照片" />
+          <div id="detailPhotoEmpty" class="detail-photo-empty">
+            <span class="detail-photo-icon">📷</span>
+            <span>新增作品照片</span>
+          </div>
+        </button>
+        <div class="detail-photo-actions">
+          <button id="detailPhotoChangeBtn" type="button" class="text-btn">新增照片</button>
+          <button id="detailPhotoRemoveBtn" type="button" class="danger-link hidden">移除照片</button>
+        </div>
+        <input id="detailPhotoInput" class="hidden-file-input" type="file" accept="image/*" />
+      </div>
+
+      <div class="timer-label">總工時</div>
+      <div id="detailTimer" class="big-timer detail-total-timer">00:00:00</div>
       <div class="detail-actions">
         <button id="detailStartPauseBtn" class="primary-btn">開始</button>
         <button id="detailLapBtn" class="secondary-btn">分段</button>
       </div>
 
-      <div class="info-grid">
+      <div class="info-grid info-grid-3">
+        <div class="info-card current-segment-card"><span>目前這一段</span><strong id="detailCurrentSegment">00:00:00</strong></div>
         <div class="info-card"><span>累積工時</span><strong id="detailTotal">0 小時</strong></div>
         <div class="info-card"><span>分段數</span><strong id="detailLapCount">0</strong></div>
       </div>
 
-      <div class="subsection">
+      <section class="completion-card">
+        <div>
+          <div class="eyebrow">作品狀態</div>
+          <h3 id="completionTitle">製作中</h3>
+          <p id="completionText">完成後會留下總工時與製作期間。</p>
+        </div>
+        <button id="toggleCompleteBtn" class="secondary-btn">標記完成</button>
+      </section>
+
+      <div class="subsection journal-section">
         <div class="subsection-head">
-          <h3>分段紀錄</h3>
+          <div>
+            <h3>製作時間軸</h3>
+            <p>每次分段，都是作品成長的一個節點。</p>
+          </div>
           <button id="clearLapsBtn" class="danger-link">清除</button>
         </div>
-        <div id="lapList" class="lap-list"></div>
+        <div id="lapList" class="timeline-list"></div>
       </div>
 
       <div class="subsection">
@@ -128,18 +173,47 @@
     </div>
   </div>
 
-  <!-- Lap modal -->
+  <!-- Journal checkpoint modal -->
   <div id="lapModal" class="modal-backdrop hidden">
-    <div class="modal-sheet compact">
+    <div class="modal-sheet journal-sheet">
       <div class="sheet-handle"></div>
       <div class="sheet-head">
-        <h2>新增分段</h2>
+        <div>
+          <div class="eyebrow">製作紀錄</div>
+          <h2>新增進度節點</h2>
+        </div>
         <button class="text-btn" data-close="lapModal">關閉</button>
       </div>
-      <label>這一段叫什麼？
-        <input id="lapNameInput" maxlength="40" placeholder="例如：主體第 1–10 圈" />
+
+      <div class="snapshot-preview">
+        <div><span>本段時間</span><strong id="lapSnapshotSegment">00:00:00</strong></div>
+        <div><span>累積工時</span><strong id="lapSnapshotTotal">00:00:00</strong></div>
+      </div>
+
+      <label>這一段做到哪裡？
+        <input id="lapNameInput" maxlength="50" placeholder="例如：主體第 1–10 圈" />
       </label>
-      <button id="saveLapBtn" class="primary-btn wide">記錄這一段</button>
+
+      <label>留一句製作紀錄
+        <textarea id="lapNoteInput" rows="3" maxlength="180" placeholder="例如：換了 5.0 mm 鉤針後比較順。"></textarea>
+      </label>
+
+      <div class="photo-field">
+        <div class="field-title-row">
+          <span>進度照片</span>
+          <small>選填</small>
+        </div>
+        <button id="lapPhotoBtn" type="button" class="photo-picker">
+          <div id="lapPhotoPreview" class="photo-preview">
+            <span class="photo-plus">＋</span>
+            <span>加入這次的進度照</span>
+          </div>
+        </button>
+        <input id="lapPhotoInput" class="hidden-file-input" type="file" accept="image/*" />
+        <button id="clearLapPhotoBtn" type="button" class="photo-remove-link hidden">移除選取</button>
+      </div>
+
+      <button id="saveLapBtn" class="primary-btn wide">儲存這次進度</button>
     </div>
   </div>
 

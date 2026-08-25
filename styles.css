@@ -12,7 +12,7 @@
   --shadow:0 12px 34px rgba(72,50,31,.08);
 }
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang TC","Noto Sans TC",sans-serif}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang TC","Noto Sans TC",sans-serif;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{min-height:100vh}
 button,input,textarea,select{font:inherit}
 button{cursor:pointer}
@@ -23,7 +23,9 @@ h1{font-size:29px;line-height:1.1;margin:4px 0 0}
 h2{margin:0}
 h3{margin:0 0 8px}
 p{color:var(--muted);line-height:1.55}
-.icon-btn{width:46px;height:46px;border-radius:50%;border:0;background:var(--ink);color:white;font-size:30px;line-height:1;box-shadow:var(--shadow)}
+.add-btn{border:0;background:var(--ink);color:white;border-radius:999px;height:44px;padding:0 15px 0 12px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:800;font-size:14px;box-shadow:var(--shadow);white-space:nowrap}
+.add-btn-plus{font-size:22px;font-weight:500;line-height:1;transform:translateY(-1px)}
+.add-btn:active{transform:scale(.97)}
 .active-card{margin:24px 0 28px;padding:22px;border-radius:28px;background:var(--ink);color:white;box-shadow:var(--shadow)}
 .active-card .label{font-size:12px;color:#D7C8BC;margin-bottom:4px}
 .status-pill{font-size:12px;padding:6px 10px;border-radius:999px;background:#5E4D42}
@@ -42,7 +44,7 @@ p{color:var(--muted);line-height:1.55}
 .project-card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:17px;box-shadow:0 4px 18px rgba(72,50,31,.04)}
 .project-card.running{border-color:#E6B77D}
 .project-row{display:flex;align-items:center;gap:12px}
-.project-icon{width:48px;height:48px;border-radius:16px;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:24px;flex:0 0 auto}
+.project-icon{width:54px;height:54px;border-radius:16px;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:24px;flex:0 0 auto;overflow:hidden;position:relative}.project-thumb{width:100%;height:100%;object-fit:cover;display:block}.project-fallback{display:flex;align-items:center;justify-content:center;width:100%;height:100%}
 .project-main{min-width:0;flex:1}
 .project-title{font-weight:800;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .project-meta{color:var(--muted);font-size:13px;margin-top:3px}
@@ -66,7 +68,7 @@ p{color:var(--muted);line-height:1.55}
 .sheet-head{margin-bottom:18px}
 .text-btn,.danger-link{border:0;background:transparent;color:var(--accent);font-weight:750}
 label{display:block;font-size:13px;color:var(--muted);margin:14px 0}
-input,textarea,select{width:100%;margin-top:7px;border:1px solid var(--line);border-radius:14px;background:#FFF;padding:13px;color:var(--ink);outline:none}
+input,textarea,select{width:100%;margin-top:7px;border:1px solid var(--line);border-radius:14px;background:#FFF;padding:13px;color:var(--ink);outline:none;font-size:16px;line-height:1.35}
 input:focus,textarea:focus,select:focus{border-color:#DDA35B}
 .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .info-card,.settings-card{background:var(--soft);border-radius:18px;padding:16px}
@@ -109,4 +111,100 @@ input:focus,textarea:focus,select:focus{border-color:#DDA35B}
   .lap-times{gap:3px}
   .lap-time{gap:5px}
   .lap-time strong{font-size:13px;min-width:68px}
+}
+
+
+/* v3: iPhone Safari / PWA 輸入框防止自動放大
+   iOS 在輸入框字級小於 16px 時會自動 zoom in。 */
+input,
+textarea,
+select{
+  font-size:16px !important;
+}
+
+
+/* v4：作品照片 */
+.photo-field{margin:14px 0}
+.field-title-row{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:7px}
+.field-title-row small{font-size:11px;color:var(--muted)}
+.photo-picker{width:100%;border:1px dashed #D8C5B0;background:#FFF;border-radius:18px;padding:0;overflow:hidden;color:var(--muted)}
+.photo-preview{height:124px;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:700}
+.photo-preview img{width:100%;height:100%;object-fit:cover}
+.photo-plus{width:28px;height:28px;border-radius:50%;background:var(--soft);display:inline-flex;align-items:center;justify-content:center;color:var(--accent);font-size:21px;font-weight:500}
+.photo-remove-link{border:0;background:transparent;color:var(--danger);font-size:13px;font-weight:750;padding:8px 2px 0}
+.hidden-file-input{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important;margin:0!important;padding:0!important}
+
+.detail-photo-section{margin:4px 0 14px}
+.detail-photo-card{width:100%;height:155px;border:0;background:var(--soft);border-radius:20px;overflow:hidden;padding:0;display:block}
+.detail-photo-img{width:100%;height:100%;object-fit:cover;display:block}
+.detail-photo-empty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;color:var(--muted);font-weight:700}
+.detail-photo-icon{font-size:28px}
+.detail-photo-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:5px}
+
+.timer-label{text-align:center;color:var(--muted);font-size:12px;font-weight:750;margin-top:6px}
+.detail-total-timer{margin-top:6px}
+.info-grid-3{grid-template-columns:1.25fr 1fr 1fr;margin-top:10px}
+.current-segment-card{background:#F8E7D0}
+.current-segment-card strong{font-variant-numeric:tabular-nums;color:var(--accent);font-size:17px}
+
+button:disabled{opacity:.55;cursor:default}
+
+@media (max-width:430px){
+  .info-grid-3{grid-template-columns:1fr 1fr}
+  .current-segment-card{grid-column:1 / -1}
+}
+
+
+/* v5 — YarnTime Journal */
+.project-journal-meta{color:#B39B88;font-size:11px;margin-top:3px}
+
+.journal-sheet{min-height:66vh}
+.snapshot-preview{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 16px}
+.snapshot-preview>div{background:var(--soft);border-radius:16px;padding:13px}
+.snapshot-preview span{display:block;color:var(--muted);font-size:11px}
+.snapshot-preview strong{display:block;margin-top:5px;font-size:18px;font-variant-numeric:tabular-nums}
+.snapshot-preview>div:first-child strong{color:var(--accent)}
+
+.completion-card{margin-top:22px;padding:16px;background:linear-gradient(180deg,#FFF8EF,#F5E8D9);border:1px solid #E9D3B8;border-radius:20px;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.completion-card h3{margin:4px 0 0}
+.completion-card p{margin:5px 0 0;font-size:12px}
+.completion-card .secondary-btn{flex:0 0 auto;padding:11px 14px}
+
+.journal-section .subsection-head{align-items:flex-start}
+.journal-section .subsection-head p{font-size:12px;margin:3px 0 0}
+.timeline-list{display:grid;gap:0;margin-top:8px}
+.timeline-item{display:grid;grid-template-columns:34px 1fr;gap:10px;position:relative}
+.timeline-marker{display:flex;flex-direction:column;align-items:center}
+.timeline-marker span{width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;z-index:2}
+.timeline-marker i{width:2px;background:#E6D7C8;flex:1;min-height:22px}
+.timeline-item:last-child .timeline-marker i{background:transparent}
+.timeline-card{background:#FFF;border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:12px}
+.timeline-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.timeline-card-head strong{font-size:15px}
+.timeline-card-head small{display:block;color:var(--muted);font-size:10px;margin-top:4px}
+.timeline-time{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.timeline-time span{display:block;color:var(--accent);font-size:11px;font-weight:800}
+.timeline-time b{display:block;color:var(--ink);font-size:11px;margin-top:3px}
+.timeline-note{background:#FBF5EE;border-radius:12px;padding:10px 11px;margin:10px 0 0;color:#6E5E51;font-size:12px;white-space:pre-wrap}
+.timeline-photo-wrap{display:none;margin-top:10px}
+.timeline-photo-wrap.has-photo{display:block}
+.timeline-photo{width:100%;max-height:250px;object-fit:cover;border-radius:14px;display:block}
+.timeline-empty{text-align:center;padding:26px 14px;background:#FBF7F2;border:1px dashed #DDCBB7;border-radius:18px}
+.timeline-empty span{font-size:32px}
+.timeline-empty p{font-size:12px;margin:7px 0 0}
+
+.journal-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:12px}
+.metric-card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px}
+.metric-card span{font-size:11px;color:var(--muted);display:block}
+.metric-card strong{font-size:24px;display:block;margin-top:3px}
+.metric-card small{font-size:10px;color:#A38D7B;display:block;margin-top:3px;line-height:1.35}
+
+@media(max-width:430px){
+  .completion-card{align-items:flex-start;flex-direction:column}
+  .completion-card .secondary-btn{width:100%}
+  .timeline-card-head{flex-direction:column}
+  .timeline-time{text-align:left;display:flex;gap:12px}
+  .timeline-time span,.timeline-time b{display:inline;margin:0}
+  .journal-metrics{grid-template-columns:1fr 1fr}
+  .metric-card:first-child{grid-column:1/-1}
 }
