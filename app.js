@@ -1661,8 +1661,54 @@ function renderStats(){
 }
 function renderAll(){ renderProjects(); renderActive(); renderDetail(); renderStats(); }
 
-function openModal(id){ document.getElementById(id).classList.remove("hidden"); }
-function closeModal(id){ document.getElementById(id).classList.add("hidden"); }
+const modalStack=[];
+
+function refreshModalStack(){
+  modalStack.forEach((id,index)=>{
+    const modal=document.getElementById(id);
+    if(!modal) return;
+    modal.style.zIndex=String(50 + index*10);
+    modal.classList.toggle("modal-topmost",index===modalStack.length-1);
+    modal.setAttribute("aria-hidden","false");
+  });
+  document.body.classList.toggle("modal-open",modalStack.length>0);
+}
+
+function openModal(id){
+  const modal=document.getElementById(id);
+  if(!modal) return;
+
+  // 已經開啟的視窗再次被呼叫時，把它移到最上層。
+  const existingIndex=modalStack.indexOf(id);
+  if(existingIndex>=0) modalStack.splice(existingIndex,1);
+
+  modal.classList.remove("hidden");
+  modalStack.push(id);
+  refreshModalStack();
+
+  // 每次開啟時從 sheet 頂端開始，避免「編輯」看起來卡在下方捲動位置。
+  const sheet=modal.querySelector(".modal-sheet");
+  if(sheet) requestAnimationFrame(()=>sheet.scrollTo({top:0,behavior:"auto"}));
+}
+
+function closeModal(id){
+  const modal=document.getElementById(id);
+  if(!modal) return;
+
+  modal.classList.add("hidden");
+  modal.style.zIndex="";
+  modal.classList.remove("modal-topmost");
+  modal.setAttribute("aria-hidden","true");
+
+  const index=modalStack.lastIndexOf(id);
+  if(index>=0) modalStack.splice(index,1);
+  refreshModalStack();
+}
+
+function closeTopModal(){
+  const topId=modalStack.at(-1);
+  if(topId) closeModal(topId);
+}
 
 document.querySelectorAll("[data-project-filter]").forEach(btn=>btn.onclick=()=>{
   currentProjectFilter=btn.dataset.projectFilter;
@@ -1804,7 +1850,32 @@ document.getElementById("projectList").onclick=(e)=>{
   }
 };
 
-document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>closeModal(b.dataset.close));
+document.querySelectorAll("[data-close]").forEach(b=>{
+  b.onclick=()=>{
+    const targetId=b.dataset.close;
+    // 如果按的是目前最上層的關閉，就正常回到上一層。
+    // 若因特殊狀況不是最上層，也只關掉指定那一層。
+    closeModal(targetId);
+  };
+});
+
+// 點灰色背景：只關掉「最上層」視窗。
+// 點到白色 sheet 裡面不會誤關。
+document.querySelectorAll(".modal-backdrop").forEach(backdrop=>{
+  backdrop.addEventListener("pointerdown",(e)=>{
+    if(e.target!==backdrop) return;
+    if(modalStack.at(-1)!==backdrop.id) return;
+    closeTopModal();
+  });
+});
+
+// 電腦測試時 Esc 也視為「返回上一層」。
+document.addEventListener("keydown",(e)=>{
+  if(e.key==="Escape" && modalStack.length){
+    e.preventDefault();
+    closeTopModal();
+  }
+});
 
 document.getElementById("loadMoreSessionsBtn").onclick=()=>{
   if(!detailProjectId) return;
@@ -1882,6 +1953,10 @@ document.getElementById("editProjectInfoBtn").onclick=()=>{
   const p=getProject(detailProjectId); if(!p) return;
   fillProjectModal(p);
   openModal("projectModal");
+  requestAnimationFrame(()=>{
+    const input=document.getElementById("projectNameInput");
+    if(input) input.focus({preventScroll:true});
+  });
 };
 
 document.getElementById("detailPhotoCard").onclick=()=>document.getElementById("detailPhotoInput").click();
@@ -2438,7 +2513,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:12,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:13,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);

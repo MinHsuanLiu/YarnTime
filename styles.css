@@ -1316,3 +1316,48 @@ input,textarea,select{
   .resume-photo-grid{max-height:290px}
   .resume-mode-note{grid-template-columns:1fr 1fr}
 }
+
+
+/* =========================================================
+   v13 — modal stack / edit overlay / outside tap back
+   ========================================================= */
+
+body.modal-open{
+  overflow:hidden;
+}
+
+/* z-index 由 JS 依開啟順序動態分配。
+   這能修正 projectModal 在 DOM 較前面而被 detailModal 壓住的問題。 */
+.modal-backdrop{
+  touch-action:manipulation;
+}
+
+.modal-backdrop.modal-topmost{
+  pointer-events:auto;
+}
+
+/* 第二層以上仍可隱約看見前一層，但一定在上面 */
+.modal-backdrop[style*="z-index: 60"],
+.modal-backdrop[style*="z-index: 70"],
+.modal-backdrop[style*="z-index: 80"],
+.modal-backdrop[style*="z-index: 90"]{
+  background:rgba(44,34,27,.32);
+}
+
+/* 編輯作品是從作品詳情上再開一層；
+   給一點高度差，視覺上更明確是「上層編輯頁」。 */
+#projectModal.modal-topmost .modal-sheet{
+  max-height:92vh;
+  box-shadow:0 -18px 44px rgba(45,34,27,.18);
+}
+
+/* 點灰色區域可返回上一層，增加一點可感知的 backdrop 空間 */
+.modal-sheet{
+  position:relative;
+  z-index:1;
+}
+
+/* iPhone 上避免 sheet 內容高度很長時誤以為視窗仍在底下 */
+#projectModal .modal-sheet{
+  overscroll-behavior:contain;
+}
