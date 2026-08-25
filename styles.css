@@ -3487,3 +3487,24 @@ body.modal-open .modal-backdrop{
 .home-quick-add-project.hidden{
   display:none !important;
 }
+
+
+/* =========================================================
+   v24.8 — Home quick-add visibility hard fix
+   ========================================================= */
+
+/* 首頁兩個新增入口：hidden 永遠優先。 */
+#homeRecentEmpty.hidden,
+#homeQuickAddProjectBtn.hidden{
+  display:none !important;
+}
+
+/* 有作品時顯示的小型新增按鈕。 */
+#homeQuickAddProjectBtn:not(.hidden){
+  display:flex !important;
+}
+
+/* 0 件作品時顯示的大型空狀態。 */
+#homeRecentEmpty:not(.hidden){
+  display:flex !important;
+}

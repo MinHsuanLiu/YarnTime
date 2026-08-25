@@ -1398,10 +1398,20 @@ function renderHome(){
   const quickAdd=document.getElementById("homeQuickAddProjectBtn");
   const hasProjects=state.projects.length>0;
 
-  // 0 件作品：顯示大空狀態「新增第一件作品」。
-  // 已有作品：改顯示較輕的「新增新作品」快捷按鈕。
-  empty.classList.toggle("hidden",hasProjects);
-  quickAdd.classList.toggle("hidden",!hasProjects);
+  // 首頁新增入口明確二選一，不再依賴 CSS 優先權。
+  if(hasProjects){
+    empty.classList.add("hidden");
+    empty.setAttribute("aria-hidden","true");
+
+    quickAdd.classList.remove("hidden");
+    quickAdd.setAttribute("aria-hidden","false");
+  }else{
+    empty.classList.remove("hidden");
+    empty.setAttribute("aria-hidden","false");
+
+    quickAdd.classList.add("hidden");
+    quickAdd.setAttribute("aria-hidden","true");
+  }
 
   list.innerHTML=recent.map(p=>`
     <article class="home-project-card-wrap">
@@ -3350,7 +3360,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:24.7,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:24.8,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
