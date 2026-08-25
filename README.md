@@ -1,4 +1,4 @@
-# YarnTime PWA v17 — New App Icon
+# YarnTime PWA v18 — Rounded Brand Type
 
 這是一個可安裝到 iPhone 主畫面的網頁 App（PWA）。
 
@@ -541,3 +541,20 @@ YarnTime 反推：
 - sw.js
 - icon-192.png
 - icon-512.png
+
+
+## v18 — 英文字體改成較可愛的圓體
+
+### 改動
+- YarnTime Logo 使用 iPhone/macOS 的 ui-rounded / SF Pro Rounded 系統圓體。
+- NOW MAKING、MY MAKES、FINISHED MAKE、PHOTO JOURNAL 等英文品牌小標同步使用圓體。
+- 計時數字改成較柔和的 rounded numeral，但保留等寬數字效果。
+- 中文介面不亂換花體，繼續使用 PingFang TC / 微軟正黑體等清楚字體。
+- 不需下載外部字型，PWA 離線使用也不受影響。
+
+## GitHub 更新
+覆蓋：
+- index.html
+- app.js
+- styles.css
+- sw.js

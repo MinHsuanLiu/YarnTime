@@ -1585,3 +1585,96 @@ body.modal-open{
     height:42px !important;
   }
 }
+
+
+/* =========================================================
+   v18 — Cute Rounded English Typography
+   English gets softer; Chinese/body remains readable.
+   ========================================================= */
+
+:root{
+  --yt-rounded:
+    ui-rounded,
+    "SF Pro Rounded",
+    "Arial Rounded MT Bold",
+    "Trebuchet MS",
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+}
+
+/* YarnTime wordmark: softer and more handmade-friendly */
+.yarntime-logo-word{
+  font-family:var(--yt-rounded) !important;
+  letter-spacing:-.055em !important;
+}
+
+.yarntime-logo-word strong{
+  font-family:var(--yt-rounded) !important;
+  font-weight:800 !important;
+}
+
+.yarntime-logo-word b{
+  font-family:var(--yt-rounded) !important;
+  font-weight:560 !important;
+}
+
+/* English identity labels */
+.active-now-label,
+.section-kicker,
+.project-overline,
+#detailModal .sheet-head .eyebrow,
+#detailModal .completion-card .eyebrow,
+.completed-conclusion .eyebrow,
+.stats-summary .eyebrow,
+.resume-sheet .eyebrow,
+.seller-badge{
+  font-family:var(--yt-rounded) !important;
+  letter-spacing:.12em !important;
+}
+
+/* English title words such as FINISHED MAKE / PHOTO JOURNAL */
+.resume-sheet h2,
+.completed-conclusion h3{
+  letter-spacing:-.025em;
+}
+
+/* Keep timers crisp, but slightly friendlier numerals */
+.big-timer,
+.detail-total-timer,
+.project-time,
+.seller-result-main strong,
+.seller-hourly-main strong{
+  font-family:
+    ui-rounded,
+    "SF Pro Rounded",
+    -apple-system,
+    BlinkMacSystemFont,
+    system-ui,
+    sans-serif !important;
+  font-variant-numeric:tabular-nums;
+}
+
+/* Chinese UI should stay clean/readable */
+body,
+button,
+input,
+textarea,
+select{
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "PingFang TC",
+    "Microsoft JhengHei",
+    system-ui,
+    sans-serif;
+}
+
+/* Slightly rounder, warmer English microcopy */
+.brand-header .yarntime-logo-word,
+.active-now-label,
+.section-kicker,
+.project-overline{
+  text-rendering:optimizeLegibility;
+}
