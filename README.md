@@ -1,4 +1,4 @@
-# YarnTime PWA v14 — Cleaner Identity
+# YarnTime PWA v15 — Larger Project Actions
 
 這是一個可安裝到 iPhone 主畫面的網頁 App（PWA）。
 
@@ -455,6 +455,29 @@ YarnTime 反推：
 - 里程碑真正有資訊用途的時間線
 
 這版只收斂裝飾，不改功能與資料格式。
+
+## GitHub 更新
+覆蓋：
+- index.html
+- app.js
+- styles.css
+- sw.js
+
+
+## v15 — 作品列表操作按鈕放大
+
+依 iPhone 實機畫面調整：
+
+- 「開始製作 / 暫停」高度提高到約 46px。
+- 「作品日誌」高度同步提高。
+- 文字放大。
+- 兩顆按鈕改成撐滿作品資訊區的雙欄配置。
+- 「作品日誌」不再像小型次要 pill。
+- 保留目前 YarnTime Orange 的主要操作層級。
+- 完成作品的「查看作品結論」也同步提高觸控高度。
+- 上方 NOW MAKING 大卡片按鈕不變。
+
+這版只調整操作尺寸，不影響資料或功能。
 
 ## GitHub 更新
 覆蓋：

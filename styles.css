@@ -1408,3 +1408,78 @@ body.modal-open{
 .identity-nav .nav-icon{
   display:block;
 }
+
+
+/* =========================================================
+   v15 — Larger project action buttons
+   ========================================================= */
+
+/* 作品列表中的「開始/暫停」與「作品日誌」改成真正手機操作尺寸 */
+.identity-project-card .project-actions{
+  display:grid !important;
+  grid-template-columns:minmax(112px,.82fr) minmax(132px,1.18fr) !important;
+  gap:10px !important;
+  margin-top:13px !important;
+  width:calc(100% - 83px) !important;
+}
+
+.identity-project-card .project-actions button{
+  width:100% !important;
+  min-height:46px !important;
+  padding:11px 14px !important;
+  font-size:12px !important;
+  line-height:1.2 !important;
+  border-radius:14px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  white-space:nowrap !important;
+}
+
+/* 「作品日誌」稍微強化，不再像次要小連結 */
+.identity-project-card .detail-mini{
+  background:rgba(255,252,247,.72) !important;
+  border:1px solid #CDBBA8 !important;
+  color:var(--yt-ink) !important;
+}
+
+.identity-project-card .detail-mini span{
+  margin-left:6px !important;
+  font-size:15px !important;
+  line-height:1 !important;
+}
+
+/* 完成作品只有一顆「查看作品結論」，也給完整觸控高度 */
+.completed-project-card .project-actions{
+  grid-template-columns:1fr !important;
+}
+
+.completed-project-card .project-actions button{
+  min-height:46px !important;
+}
+
+/* iPhone 窄螢幕：仍維持兩顆並排，但比例自然 */
+@media(max-width:430px){
+  .identity-project-card .project-actions{
+    margin-left:75px !important;
+    width:calc(100% - 75px) !important;
+    grid-template-columns:minmax(96px,.8fr) minmax(124px,1.2fr) !important;
+  }
+
+  .identity-project-card .project-actions button{
+    min-height:46px !important;
+    padding:10px 11px !important;
+    font-size:12px !important;
+  }
+
+  .completed-project-card .project-actions{
+    grid-template-columns:1fr !important;
+  }
+}
+
+/* 超窄畫面才改上下排列，避免文字被壓扁 */
+@media(max-width:360px){
+  .identity-project-card .project-actions{
+    grid-template-columns:1fr !important;
+  }
+}
