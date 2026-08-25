@@ -1,4 +1,4 @@
-# YarnTime PWA v22 — Interaction Polish
+# YarnTime PWA v23 — Stable Interactions
 
 這是一個可安裝到 iPhone 主畫面的網頁 App（PWA）。
 
@@ -834,3 +834,38 @@ GitHub 覆蓋：index.html、app.js、styles.css、sw.js。
 - 里程碑左滑單筆刪除，移除清除全部按鈕。
 - 首頁近期作品新增快速開始/暫停。
 - v21.2 下拉關閉保留。
+
+
+## v23 — 互動穩定修正版
+
+### 首頁快速開始
+- 修正 v22 首頁「開始」沒有反應。
+- 原因是把 project object 傳給只接受 project id 的 startProject()。
+- 現在首頁可直接開始 / 暫停，並即時同步 NOW MAKING、近期作品與統計。
+
+### Session 左滑刪除
+- 平常完全看不到紅色刪除區。
+- 真正向左滑後才露出。
+- 滑超過門檻會停在開啟狀態。
+- 此時紅色「刪除」按鈕才可點。
+- 點刪除後不會立刻刪，會先出現確認視窗。
+- 確認後才刪除並重算總工時。
+
+### 里程碑左滑刪除
+- 與 Session 使用完全相同的互動。
+- 每一筆可單獨左滑刪除。
+- 點刪除後先確認。
+- 確認後移除該里程碑，並同步更新履歷 / 照片回顧資料。
+
+### Modal 點擊穿透
+- backdrop 必須 pointerdown / pointerup 都在同一背景上才關閉。
+- 關閉後 500ms 封鎖 iOS 補送的 click，避免底下頁面被同一個手勢誤點。
+- modal 開啟期間 app-shell 完全禁止 pointer event。
+- 必須先離開目前視窗，再做下一個操作。
+
+### 保留
+- Bottom sheet 下拉關閉。
+- 點灰色背景關閉當前最上層。
+- Nunito 英文字體。
+- 首頁快速開始 / 暫停。
+- Session / 里程碑大量紀錄。

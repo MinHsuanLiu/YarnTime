@@ -234,7 +234,24 @@
         </button>
       </div>
 
-      <div class="menu-version">YarnTime v22</div>
+      <div class="menu-version">YarnTime v23</div>
+    </div>
+  </div>
+
+  <!-- Delete confirmation -->
+  <div id="deleteConfirmModal" class="modal-backdrop hidden">
+    <div class="modal-sheet compact-sheet delete-confirm-sheet">
+      <div class="sheet-handle"></div>
+      <div class="delete-confirm-icon" aria-hidden="true">!</div>
+      <div class="delete-confirm-copy">
+        <div class="eyebrow">確認刪除</div>
+        <h2 id="deleteConfirmTitle">刪除此筆紀錄？</h2>
+        <p id="deleteConfirmText">刪除後將無法復原。</p>
+      </div>
+      <div class="delete-confirm-actions">
+        <button id="deleteConfirmCancelBtn" class="secondary-btn">取消</button>
+        <button id="deleteConfirmOkBtn" class="danger-btn">刪除</button>
+      </div>
     </div>
   </div>
 
@@ -773,7 +790,7 @@
     </div>
     <div class="settings-card">
       <h3>資料儲存狀態</h3>
-      <div class="storage-status-row"><span>版本</span><strong>YarnTime v22</strong></div>
+      <div class="storage-status-row"><span>版本</span><strong>YarnTime v23</strong></div>
       <div class="storage-status-row"><span>已使用空間</span><strong id="storageUsageText">計算中…</strong></div>
       <div class="storage-status-row"><span>持久儲存</span><strong id="storagePersistText">檢查中…</strong></div>
       <button id="requestPersistBtn" class="secondary-btn wide">提高資料保留機率</button>

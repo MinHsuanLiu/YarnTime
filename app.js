@@ -1664,7 +1664,7 @@ function renderDetail(){
   const visibleSessions=sessions.slice(0,sessionVisible);
   sessionList.innerHTML=visibleSessions.length?visibleSessions.map((s,index)=>`
     <div class="swipe-delete-row session-swipe-row">
-      <button class="swipe-delete-action" data-delete-session="${s.id}">刪除</button>
+      <button type="button" class="swipe-delete-action" data-delete-session="${s.id}">刪除</button>
       <button class="session-row session-row-button swipe-delete-content" data-session-id="${s.id}">
         <div class="session-date">
           <strong>${formatSessionDate(s.startedAt)}</strong>
@@ -1738,7 +1738,7 @@ function renderDetail(){
 
   lapList.innerHTML=visibleLaps.length?visibleLaps.map(l=>`
     <div class="swipe-delete-row milestone-swipe-row">
-      <button class="swipe-delete-action" data-delete-lap="${l.id}">刪除</button>
+      <button type="button" class="swipe-delete-action" data-delete-lap="${l.id}">刪除</button>
       <article class="timeline-item swipe-delete-content">
         <div class="timeline-marker">
         <span class="yarn-knot"><b>${l.index}</b></span>
@@ -2106,19 +2106,50 @@ document.querySelectorAll("[data-close]").forEach(b=>{
 // 點灰色背景：只關掉「最上層」視窗。
 // 點到白色 sheet 裡面不會誤關。
 document.querySelectorAll(".modal-backdrop").forEach(backdrop=>{
+  let backdropPointerId=null;
+
   backdrop.addEventListener("pointerdown",(e)=>{
-    if(e.target!==backdrop||modalStack.at(-1)!==backdrop.id)return;
-    e.preventDefault();e.stopPropagation();
+    if(e.target!==backdrop || modalStack.at(-1)!==backdrop.id) return;
+    backdropPointerId=e.pointerId;
+
+    // 這個手勢只屬於 backdrop，不讓它穿透。
+    e.preventDefault();
+    e.stopImmediatePropagation();
   },{passive:false});
+
   backdrop.addEventListener("pointerup",(e)=>{
-    if(e.target!==backdrop||modalStack.at(-1)!==backdrop.id)return;
-    e.preventDefault();e.stopPropagation();closeTopModal();
+    if(e.pointerId!==backdropPointerId) return;
+    backdropPointerId=null;
+
+    if(e.target!==backdrop || modalStack.at(-1)!==backdrop.id) return;
+
+    e.preventDefault();
+    e.stopImmediatePropagation();
+
+    // 關閉後短暫封鎖瀏覽器補送的 click/touch，避免點到底下項目。
+    modalDismissBlockUntil=Date.now()+500;
+    closeTopModal();
   },{passive:false});
+
+  backdrop.addEventListener("pointercancel",()=>{
+    backdropPointerId=null;
+  });
+
   backdrop.addEventListener("click",(e)=>{
-    if(e.target!==backdrop)return;
-    e.preventDefault();e.stopPropagation();
+    if(e.target!==backdrop) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
   },true);
 });
+
+// 最外層保險：視窗剛被關閉的 500ms 內，不接受底層 click。
+// 這是為了解決 iOS Safari/PWA 偶發的 backdrop tap-through。
+document.addEventListener("click",(e)=>{
+  if(Date.now()<modalDismissBlockUntil){
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }
+},true);
 
 // v21.2 — Bottom sheet 下拉關閉
 // 僅套用底部 sheet；左側 menu-sheet 不使用這個手勢。
@@ -2255,10 +2286,36 @@ document.getElementById("loadMoreLapsBtn").onclick=()=>{
 
 document.getElementById("lapList").onclick=(e)=>{
   const del=e.target.closest("[data-delete-lap]");
-  if(del&&detailProjectId){
-    e.preventDefault();e.stopPropagation();
-    deleteLapById(detailProjectId,del.dataset.deleteLap);
+  if(del && detailProjectId){
+    e.preventDefault();
+    e.stopPropagation();
+    openDeleteConfirm("lap",del.dataset.deleteLap);
+    return;
   }
+
+  if(Date.now()<swipeClickBlockUntil){
+    e.preventDefault();
+    e.stopPropagation();
+  }
+};
+
+
+document.getElementById("deleteConfirmCancelBtn").onclick=()=>{
+  pendingDelete=null;
+  closeModal("deleteConfirmModal");
+};
+
+document.getElementById("deleteConfirmOkBtn").onclick=async()=>{
+  if(!pendingDelete) return;
+  const action=pendingDelete;
+  pendingDelete=null;
+
+  if(action.kind==="session") deleteSessionById(action.projectId,action.id);
+  if(action.kind==="lap") await deleteLapById(action.projectId,action.id);
+
+  closeModal("deleteConfirmModal");
+  closeSwipeRow();
+  renderAll();
 };
 
 document.getElementById("addLapFromSectionBtn").onclick=()=>{
@@ -2270,72 +2327,179 @@ document.getElementById("addSessionBtn").onclick=()=>{
 };
 
 let openSwipeRow=null;
+let swipeClickBlockUntil=0;
+let pendingDelete=null;
+let modalDismissBlockUntil=0;
 
 function closeSwipeRow(row=openSwipeRow){
   if(!row) return;
-  row.classList.remove("swipe-open");
+  row.classList.remove("swipe-open","swipe-revealing");
   const c=row.querySelector(".swipe-delete-content");
-  if(c){c.style.transform="";c.style.transition="";}
+  if(c){
+    c.style.transform="";
+    c.style.transition="";
+  }
   if(openSwipeRow===row) openSwipeRow=null;
 }
+
 function openSwipeDeleteRow(row){
   if(openSwipeRow && openSwipeRow!==row) closeSwipeRow(openSwipeRow);
-  openSwipeRow=row; row.classList.add("swipe-open");
+  openSwipeRow=row;
+  row.classList.add("swipe-open");
+  row.classList.remove("swipe-revealing");
   const c=row.querySelector(".swipe-delete-content");
-  if(c){c.style.transition="transform .18s ease-out";c.style.transform="translate3d(-82px,0,0)";}
+  if(c){
+    c.style.transition="transform .2s cubic-bezier(.2,.8,.2,1)";
+    c.style.transform="translate3d(-84px,0,0)";
+  }
 }
+
 function setupSwipeDelete(container){
   if(!container) return;
   let tr=null;
-  container.addEventListener("touchstart",e=>{
+
+  container.addEventListener("touchstart",(e)=>{
     const row=e.target.closest(".swipe-delete-row");
-    if(!row||e.touches.length!==1) return;
-    if(openSwipeRow&&openSwipeRow!==row) closeSwipeRow(openSwipeRow);
+    if(!row || e.touches.length!==1) return;
+
+    if(openSwipeRow && openSwipeRow!==row) closeSwipeRow(openSwipeRow);
+
     const t=e.touches[0];
-    tr={row,sx:t.clientX,sy:t.clientY,dx:0,dy:0,h:false,d:false};
-    const c=row.querySelector(".swipe-delete-content"); if(c)c.style.transition="none";
+    tr={
+      row,
+      sx:t.clientX,
+      sy:t.clientY,
+      dx:0,
+      dy:0,
+      direction:null
+    };
+
+    const c=row.querySelector(".swipe-delete-content");
+    if(c) c.style.transition="none";
   },{passive:true});
-  container.addEventListener("touchmove",e=>{
-    if(!tr||e.touches.length!==1)return;
-    const t=e.touches[0]; tr.dx=t.clientX-tr.sx; tr.dy=t.clientY-tr.sy;
-    if(!tr.d&&(Math.abs(tr.dx)>8||Math.abs(tr.dy)>8)){tr.d=true;tr.h=Math.abs(tr.dx)>Math.abs(tr.dy)*1.2;}
-    if(!tr.h)return;
-    const c=tr.row.querySelector(".swipe-delete-content"); if(!c)return;
-    const base=tr.row.classList.contains("swipe-open")?-82:0;
-    c.style.transform=`translate3d(${Math.max(-92,Math.min(0,base+tr.dx))}px,0,0)`;
+
+  container.addEventListener("touchmove",(e)=>{
+    if(!tr || e.touches.length!==1) return;
+    const t=e.touches[0];
+    tr.dx=t.clientX-tr.sx;
+    tr.dy=t.clientY-tr.sy;
+
+    if(!tr.direction && (Math.abs(tr.dx)>10 || Math.abs(tr.dy)>10)){
+      tr.direction=Math.abs(tr.dx)>Math.abs(tr.dy)*1.25 ? "horizontal" : "vertical";
+    }
+    if(tr.direction!=="horizontal") return;
+
+    const row=tr.row;
+    const c=row.querySelector(".swipe-delete-content");
+    if(!c) return;
+
+    const wasOpen=row.classList.contains("swipe-open");
+    const base=wasOpen ? -84 : 0;
+    const target=Math.max(-96,Math.min(0,base+tr.dx));
+
+    if(target < -8) row.classList.add("swipe-revealing");
+    else row.classList.remove("swipe-revealing");
+
+    c.style.transform=`translate3d(${target}px,0,0)`;
   },{passive:true});
+
   container.addEventListener("touchend",()=>{
-    if(!tr)return;
-    const {row,dx,h}=tr; tr=null; if(!h)return;
-    const open=row.classList.contains("swipe-open");
-    if((!open&&dx<-38)||(open&&dx<20)) openSwipeDeleteRow(row); else closeSwipeRow(row);
+    if(!tr) return;
+    const {row,dx,direction}=tr;
+    tr=null;
+
+    if(direction!=="horizontal") return;
+
+    // 防止滑動結束後 iOS 再補送一個 click，誤打開編輯頁。
+    swipeClickBlockUntil=Date.now()+420;
+
+    const wasOpen=row.classList.contains("swipe-open");
+    if((!wasOpen && dx<=-42) || (wasOpen && dx<28)){
+      openSwipeDeleteRow(row);
+    }else{
+      closeSwipeRow(row);
+    }
+  },{passive:true});
+
+  container.addEventListener("touchcancel",()=>{
+    if(tr?.row) closeSwipeRow(tr.row);
+    tr=null;
   },{passive:true});
 }
+
+function openDeleteConfirm(kind,id){
+  const p=getProject(detailProjectId);
+  if(!p) return;
+
+  pendingDelete={kind,id,projectId:p.id};
+
+  if(kind==="session"){
+    const s=(p.sessions||[]).find(x=>x.id===id);
+    document.getElementById("deleteConfirmTitle").textContent="刪除此筆製作紀錄？";
+    document.getElementById("deleteConfirmText").textContent=
+      s ? `${formatSessionDate(s.startedAt)} · ${fmtHuman(s.durationMs)}。刪除後會重新計算作品總工時。`
+        : "刪除後會重新計算作品總工時。";
+  }else{
+    const lap=(p.laps||[]).find(x=>x.id===id);
+    document.getElementById("deleteConfirmTitle").textContent="刪除此里程碑？";
+    document.getElementById("deleteConfirmText").textContent=
+      lap ? `「${lap.name||"未命名進度"}」與這筆里程碑照片會一起移除。`
+          : "這筆里程碑會被移除。";
+  }
+
+  openModal("deleteConfirmModal");
+}
+
 function deleteSessionById(projectId,sessionId){
   const p=getProject(projectId); if(!p)return;
   const base=sessionLegacyBaseMs(p);
   p.sessions=(p.sessions||[]).filter(x=>x.id!==sessionId);
   recalcAccumulatedFromSessions(p,base);
-  saveState(); closeSwipeRow(); renderAll();
+  saveState();
 }
+
 async function deleteLapById(projectId,lapId){
   const p=getProject(projectId); if(!p)return;
   p.laps=(p.laps||[]).filter(x=>x.id!==lapId);
-  try{await deleteLapPhoto(projectId,lapId);}catch(e){}
-  latestResumeBlob=null;latestResumeProjectId=null;latestAlbumBlobs=[];resumeMediaItems=[];
-  saveState(); closeSwipeRow(); renderAll();
+
+  // 若有照片，同步清理；若目前 helper 不支援刪除，主資料仍可正常刪除。
+  try{
+    if(typeof deleteLapPhoto==="function") await deleteLapPhoto(projectId,lapId);
+  }catch(e){
+    console.warn("delete lap photo failed",e);
+  }
+
+  latestResumeBlob=null;
+  latestResumeProjectId=null;
+  latestAlbumBlobs=[];
+  resumeMediaItems=[];
+  saveState();
 }
 
 document.getElementById("sessionList").onclick=(e)=>{
   const del=e.target.closest("[data-delete-session]");
-  if(del&&detailProjectId){
-    e.preventDefault();e.stopPropagation();
-    deleteSessionById(detailProjectId,del.dataset.deleteSession);return;
+  if(del && detailProjectId){
+    e.preventDefault();
+    e.stopPropagation();
+    openDeleteConfirm("session",del.dataset.deleteSession);
+    return;
   }
+
+  if(Date.now()<swipeClickBlockUntil){
+    e.preventDefault();
+    e.stopPropagation();
+    return;
+  }
+
   const row=e.target.closest("[data-session-id]");
-  if(!row||!detailProjectId)return;
+  if(!row || !detailProjectId) return;
+
   const swipe=row.closest(".swipe-delete-row");
-  if(swipe?.classList.contains("swipe-open")){closeSwipeRow(swipe);return;}
+  if(swipe?.classList.contains("swipe-open")){
+    closeSwipeRow(swipe);
+    return;
+  }
+
   openSessionModal(detailProjectId,row.dataset.sessionId);
 };
 document.getElementById("saveSessionBtn").onclick=()=>{
@@ -2944,8 +3108,15 @@ document.getElementById("homeRecentList").onclick=(e)=>{
   if(toggle){
     e.preventDefault();e.stopPropagation();
     const p=getProject(toggle.dataset.homeToggle);if(!p)return;
-    if(p.isRunning) pauseProject(p); else startProject(p);
-    saveState();renderAll();return;
+    if(p.isRunning){
+      pauseProject(p);
+      saveState();
+      renderAll();
+    }else{
+      // startProject 需要 project id；v22 傳入整個物件所以首頁按「開始」沒有作用。
+      startProject(p.id);
+    }
+    return;
   }
   const card=e.target.closest("[data-home-project]");
   if(!card)return;
@@ -2982,7 +3153,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:22,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:23,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);

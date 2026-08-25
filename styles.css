@@ -2980,3 +2980,140 @@ html,body,button,input,textarea,select,option,.app-shell,.modal-sheet,.overlay-v
 .home-quick-start{width:64px;border:0;border-left:1px solid #E8DCCF;background:#F7EBDD;color:var(--yt-orange-deep);font-size:10px;font-weight:850;}
 .home-quick-start.running{background:var(--yt-orange);color:#fff;}
 @media(max-width:430px){.home-quick-start{width:58px;}}
+
+
+/* =========================================================
+   v23 — stable swipe/delete + modal interaction
+   ========================================================= */
+
+.swipe-delete-row{
+  position:relative;
+  overflow:hidden !important;
+  isolation:isolate;
+  touch-action:pan-y;
+  background:#B95749;
+}
+
+.swipe-delete-action{
+  position:absolute !important;
+  z-index:1 !important;
+  right:0 !important;
+  top:0 !important;
+  bottom:0 !important;
+  width:84px !important;
+  border:0 !important;
+  border-radius:0 !important;
+  background:#B95749 !important;
+  color:#FFF !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  font-size:11px !important;
+  font-weight:850 !important;
+
+  /* 平常完全藏起來；真的開始往左滑才出現 */
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .08s linear;
+}
+
+.swipe-delete-row.swipe-revealing .swipe-delete-action,
+.swipe-delete-row.swipe-open .swipe-delete-action{
+  opacity:1;
+}
+
+.swipe-delete-row.swipe-open .swipe-delete-action{
+  pointer-events:auto;
+}
+
+.swipe-delete-content{
+  position:relative !important;
+  z-index:2 !important;
+  width:100% !important;
+  margin:0 !important;
+  background:#FCF8F2 !important;
+}
+
+.session-swipe-row{
+  border-bottom:1px solid var(--yt-line);
+  background:#B95749 !important;
+}
+
+.session-swipe-row .session-row{
+  min-height:58px;
+  background:#FCF8F2 !important;
+}
+
+.milestone-swipe-row{
+  border-radius:0;
+  background:#B95749 !important;
+}
+
+.milestone-swipe-row .timeline-item{
+  width:100%;
+  background:#FCF8F2 !important;
+}
+
+/* 確認刪除視窗 */
+.delete-confirm-sheet{
+  padding-bottom:calc(20px + env(safe-area-inset-bottom));
+}
+
+.delete-confirm-icon{
+  width:42px;
+  height:42px;
+  margin:7px auto 12px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#F4E1DE;
+  color:#A84539;
+  font-family:"Nunito",sans-serif;
+  font-weight:900;
+  font-size:20px;
+}
+
+.delete-confirm-copy{
+  text-align:center;
+  padding:0 10px 12px;
+}
+
+.delete-confirm-copy h2{
+  margin:4px 0 7px;
+  font-size:18px;
+}
+
+.delete-confirm-copy p{
+  margin:0 auto;
+  max-width:300px;
+  font-size:10px;
+  line-height:1.55;
+  color:#8F7C6C;
+}
+
+.delete-confirm-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:9px;
+  margin-top:8px;
+}
+
+.delete-confirm-actions button{
+  min-height:46px;
+  border-radius:13px;
+}
+
+/* modal 打開時，底層 app 永遠不可直接操作 */
+body.modal-open .app-shell{
+  pointer-events:none !important;
+}
+body.modal-open .modal-backdrop{
+  pointer-events:auto !important;
+}
+
+/* 不讓 swipe row 的刪除區與內容 visually 黏成同一張卡 */
+.session-swipe-row .swipe-delete-action,
+.milestone-swipe-row .swipe-delete-action{
+  box-shadow:inset 1px 0 0 rgba(255,255,255,.18);
+}
