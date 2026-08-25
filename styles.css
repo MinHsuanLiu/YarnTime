@@ -3441,3 +3441,14 @@ body.modal-open .modal-backdrop{
 .native-swipe-row{
   touch-action:auto;
 }
+
+
+/* =========================================================
+   v24.8 — Empty state hidden CSS fix
+   ========================================================= */
+
+/* v24.4 的 .home-empty-add 使用 display:flex !important，
+   會蓋過通用 .hidden。只要 JS 判定 hidden，就必須真的消失。 */
+.home-empty-add.hidden{
+  display:none !important;
+}

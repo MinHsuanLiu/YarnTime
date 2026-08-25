@@ -3344,7 +3344,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:24.7,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:24.8,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
