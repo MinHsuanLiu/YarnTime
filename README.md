@@ -1,4 +1,4 @@
-# YarnTime PWA v13 — Modal Stack Fix
+# YarnTime PWA v14 — Cleaner Identity
 
 這是一個可安裝到 iPhone 主畫面的網頁 App（PWA）。
 
@@ -426,6 +426,35 @@ YarnTime 反推：
 - 每次開視窗都自動回到該視窗最上方。
 - 電腦測試時按 Esc 也可返回上一層。
 - 開 modal 時鎖定背景頁面捲動，避免底下頁面跟著滑。
+
+## GitHub 更新
+覆蓋：
+- index.html
+- app.js
+- styles.css
+- sw.js
+
+
+## v14 — Cleaner Identity
+
+依實機畫面調整品牌視覺：
+
+### 移除
+- 首頁 YarnTime / 標題上方的橘色毛線圈線
+- NOW MAKING 卡片右上角的淡色圈線
+- 「我的作品」右側的圈線
+- 每張作品下方的小圈線
+- 詳情頁標題下方純裝飾的小線
+
+### 保留
+- 底部「作品 / 統計 / 設定」自製 SVG 線條 icon
+- NOW MAKING 小橘點
+- 正在計時的橘色
+- 主要按鈕橘色
+- 製作中頁籤橘色底線
+- 里程碑真正有資訊用途的時間線
+
+這版只收斂裝飾，不改功能與資料格式。
 
 ## GitHub 更新
 覆蓋：

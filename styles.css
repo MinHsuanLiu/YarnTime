@@ -1361,3 +1361,50 @@ body.modal-open{
 #projectModal .modal-sheet{
   overscroll-behavior:contain;
 }
+
+
+/* =========================================================
+   v14 — Cleaner Identity
+   保留底部自製 icon，移除首頁「刻意毛線化」裝飾線
+   ========================================================= */
+
+/* 首頁 YarnTime 字標下方的橘色圈線 */
+.brand-thread{
+  display:none !important;
+}
+
+/* NOW MAKING 卡片右上角的淡色圈線 */
+.identity-thread-line{
+  display:none !important;
+}
+
+/* 「我的作品」右側裝飾線 */
+.section-thread{
+  display:none !important;
+}
+
+/* 每張作品底部的小毛線圈線 */
+.project-card-thread{
+  display:none !important;
+}
+
+/* 詳情頁標題下方額外的小圈線也一起收乾淨，
+   但里程碑真正的「時間線」保留，因為它有資訊功能。 */
+.detail-signature-line{
+  display:none !important;
+}
+
+/* 字標拿掉裝飾後補回合理間距 */
+.brand-lockup{
+  margin-bottom:12px !important;
+}
+
+/* 作品標題區右邊不再預留裝飾空間 */
+.identity-section-head{
+  justify-content:flex-start !important;
+}
+
+/* 保留 bottom nav 自製 icon — 明確不做改動 */
+.identity-nav .nav-icon{
+  display:block;
+}
