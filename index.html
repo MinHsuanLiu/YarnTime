@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#F7F1E8" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="YarnTime" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>YarnTime</title>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">YarnTime</div>
+        <h1>我的毛線工時</h1>
+      </div>
+      <button id="addProjectBtn" class="icon-btn" aria-label="新增作品">＋</button>
+    </header>
+
+    <main>
+      <section id="activeCard" class="active-card hidden">
+        <div class="active-top">
+          <div>
+            <div class="label">正在製作</div>
+            <h2 id="activeName">—</h2>
+          </div>
+          <span class="status-pill">計時中</span>
+        </div>
+        <div id="activeTimer" class="big-timer">00:00:00</div>
+        <div class="active-actions">
+          <button id="pauseActiveBtn" class="primary-btn">暫停</button>
+          <button id="lapActiveBtn" class="secondary-btn">分段</button>
+        </div>
+      </section>
+
+      <section class="section-head">
+        <div>
+          <h2>作品</h2>
+          <p>每件作品各自累積時間</p>
+        </div>
+      </section>
+
+      <div id="emptyState" class="empty-state hidden">
+        <div class="empty-yarn">🧶</div>
+        <h3>還沒有作品</h3>
+        <p>先新增一件正在織的作品吧。</p>
+        <button id="emptyAddBtn" class="primary-btn wide">新增作品</button>
+      </div>
+
+      <section id="projectList" class="project-list"></section>
+    </main>
+
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-view="projects">🧶<span>作品</span></button>
+      <button class="nav-item" data-view="stats">◷<span>統計</span></button>
+      <button class="nav-item" data-view="settings">⚙︎<span>設定</span></button>
+    </nav>
+  </div>
+
+  <!-- Project modal -->
+  <div id="projectModal" class="modal-backdrop hidden">
+    <div class="modal-sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-head">
+        <h2 id="projectModalTitle">新增作品</h2>
+        <button class="text-btn" data-close="projectModal">關閉</button>
+      </div>
+      <label>作品名稱
+        <input id="projectNameInput" maxlength="40" placeholder="例如：阿卡迪亞毯" />
+      </label>
+      <label>類型
+        <select id="projectTypeInput">
+          <option>鉤針</option>
+          <option>棒針</option>
+          <option>其他</option>
+        </select>
+      </label>
+      <label>備註
+        <textarea id="projectNoteInput" rows="3" placeholder="線材、針號、顏色…"></textarea>
+      </label>
+      <button id="saveProjectBtn" class="primary-btn wide">儲存</button>
+    </div>
+  </div>
+
+  <!-- Detail modal -->
+  <div id="detailModal" class="modal-backdrop hidden">
+    <div class="modal-sheet tall">
+      <div class="sheet-handle"></div>
+      <div class="sheet-head">
+        <div>
+          <div id="detailType" class="eyebrow"></div>
+          <h2 id="detailName">作品</h2>
+        </div>
+        <button class="text-btn" data-close="detailModal">關閉</button>
+      </div>
+      <div id="detailTimer" class="big-timer">00:00:00</div>
+      <div class="detail-actions">
+        <button id="detailStartPauseBtn" class="primary-btn">開始</button>
+        <button id="detailLapBtn" class="secondary-btn">分段</button>
+      </div>
+
+      <div class="info-grid">
+        <div class="info-card"><span>累積工時</span><strong id="detailTotal">0 小時</strong></div>
+        <div class="info-card"><span>分段數</span><strong id="detailLapCount">0</strong></div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-head">
+          <h3>分段紀錄</h3>
+          <button id="clearLapsBtn" class="danger-link">清除</button>
+        </div>
+        <div id="lapList" class="lap-list"></div>
+      </div>
+
+      <div class="subsection">
+        <h3>作品備註</h3>
+        <p id="detailNote" class="note-text">—</p>
+      </div>
+
+      <div class="danger-zone">
+        <button id="deleteProjectBtn" class="danger-btn">刪除這個作品</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lap modal -->
+  <div id="lapModal" class="modal-backdrop hidden">
+    <div class="modal-sheet compact">
+      <div class="sheet-handle"></div>
+      <div class="sheet-head">
+        <h2>新增分段</h2>
+        <button class="text-btn" data-close="lapModal">關閉</button>
+      </div>
+      <label>這一段叫什麼？
+        <input id="lapNameInput" maxlength="40" placeholder="例如：主體第 1–10 圈" />
+      </label>
+      <button id="saveLapBtn" class="primary-btn wide">記錄這一段</button>
+    </div>
+  </div>
+
+  <!-- Stats view -->
+  <div id="statsView" class="overlay-view hidden">
+    <div class="overlay-head">
+      <div><div class="eyebrow">YarnTime</div><h1>工時統計</h1></div>
+    </div>
+    <div id="statsContent"></div>
+  </div>
+
+  <!-- Settings view -->
+  <div id="settingsView" class="overlay-view hidden">
+    <div class="overlay-head">
+      <div><div class="eyebrow">YarnTime</div><h1>設定</h1></div>
+    </div>
+    <div class="settings-card">
+      <h3>資料備份</h3>
+      <p>資料目前只存在這台裝置的瀏覽器。建議偶爾匯出備份。</p>
+      <button id="exportBtn" class="secondary-btn wide">匯出備份</button>
+      <label class="file-label">匯入備份
+        <input id="importInput" type="file" accept="application/json" />
+      </label>
+    </div>
+    <div class="settings-card">
+      <h3>關於背景計時</h3>
+      <p>iPhone 網頁版不會持續在背景「跑秒」，而是記住開始時間；你切去別的 App、鎖螢幕後再回來，累積時間仍會正確。</p>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
