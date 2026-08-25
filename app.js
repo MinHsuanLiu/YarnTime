@@ -72,6 +72,14 @@ function fmtHuman(ms){
   if(h===0) return `${m} 分`;
   return `${h} 小時 ${m} 分`;
 }
+
+function latestSessionDurationMs(p){
+  const sessions=(p?.sessions||[]).filter(s=>Number.isFinite(s?.durationMs));
+  if(!sessions.length) return 0;
+  const latest=sessions.slice().sort((a,b)=>(b.endedAt||b.startedAt||0)-(a.endedAt||a.startedAt||0))[0];
+  return latest?.durationMs||0;
+}
+
 function escapeHTML(str=""){
   return str.replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 }
@@ -1509,19 +1517,33 @@ function renderActive(){
   const stateLabel=document.getElementById("activeStateLabel");
   const status=document.getElementById("activeStatusPill");
   const timeLabel=document.getElementById("activeTimeLabel");
+  const mainTimer=document.getElementById("activeTimer");
+  const secondaryLabel=document.getElementById("activeSecondaryLabel");
+  const secondaryTimer=document.getElementById("activeSecondaryTimer");
   const action=document.getElementById("pauseActiveBtn");
 
   if(p.isRunning){
     stateLabel.innerHTML="<i></i> 正在製作";
     status.textContent="計時中";
+
     timeLabel.textContent="本次製作";
-    document.getElementById("activeTimer").textContent=fmt(currentSessionMs(p));
+    mainTimer.textContent=fmt(currentSessionMs(p));
+
+    secondaryLabel.textContent="作品總工時";
+    secondaryTimer.textContent=fmt(elapsedMs(p));
+
     action.textContent="暫停";
   }else{
     stateLabel.innerHTML="<i></i> 目前作品";
     status.textContent="已暫停";
+
     timeLabel.textContent="作品總工時";
-    document.getElementById("activeTimer").textContent=fmt(elapsedMs(p));
+    mainTimer.textContent=fmt(elapsedMs(p));
+
+    const lastMs=latestSessionDurationMs(p);
+    secondaryLabel.textContent="上次製作";
+    secondaryTimer.textContent=lastMs>0 ? fmt(lastMs) : "尚無紀錄";
+
     action.textContent="繼續製作";
   }
 
@@ -1900,6 +1922,25 @@ function renderStats(){
       ${total>0 && sessions.length===0?`<p class="stats-footnote">逐次製作統計會從 v8 開始累積；之前的總工時仍完整保留。</p>`:""}
     </section>`;
 }
+
+function updateHomeActiveLiveOnly(){
+  const p=state.currentProjectId?getProject(state.currentProjectId):null;
+  if(!p || p.isCompleted) return;
+
+  const main=document.getElementById("activeTimer");
+  const secondary=document.getElementById("activeSecondaryTimer");
+  if(!main || !secondary) return;
+
+  if(p.isRunning){
+    main.textContent=fmt(currentSessionMs(p));
+    secondary.textContent=fmt(elapsedMs(p));
+  }else{
+    main.textContent=fmt(elapsedMs(p));
+    const lastMs=latestSessionDurationMs(p);
+    secondary.textContent=lastMs>0?fmt(lastMs):"尚無紀錄";
+  }
+}
+
 function updateDetailLiveOnly(){
   if(!detailProjectId) return;
   const p=getProject(detailProjectId); if(!p) return;
@@ -1979,6 +2020,8 @@ function closeModal(id){
   const index=modalStack.lastIndexOf(id);
   if(index>=0) modalStack.splice(index,1);
   refreshModalStack();
+
+  if(typeof closeSwipeRow==="function") closeSwipeRow();
 }
 
 function closeTopModal(){
@@ -2367,11 +2410,12 @@ let modalDismissBlockUntil=0;
 
 function closeSwipeRow(row=openSwipeRow){
   if(!row) return;
-  row.classList.remove("swipe-open","swipe-revealing");
+  row.classList.remove("swipe-open","swipe-revealing","swipe-dragging");
   const c=row.querySelector(".swipe-delete-content");
   if(c){
-    c.style.transform="";
-    c.style.transition="";
+    c.style.transition="transform .2s cubic-bezier(.2,.8,.2,1)";
+    c.style.transform="translate3d(0,0,0)";
+    setTimeout(()=>{ if(!row.classList.contains("swipe-open")) c.style.transition=""; },220);
   }
   if(openSwipeRow===row) openSwipeRow=null;
 }
@@ -2379,8 +2423,8 @@ function closeSwipeRow(row=openSwipeRow){
 function openSwipeDeleteRow(row){
   if(openSwipeRow && openSwipeRow!==row) closeSwipeRow(openSwipeRow);
   openSwipeRow=row;
-  row.classList.add("swipe-open");
-  row.classList.remove("swipe-revealing");
+  row.classList.add("swipe-open","swipe-revealing");
+  row.classList.remove("swipe-dragging");
   const c=row.querySelector(".swipe-delete-content");
   if(c){
     c.style.transition="transform .2s cubic-bezier(.2,.8,.2,1)";
@@ -2390,75 +2434,110 @@ function openSwipeDeleteRow(row){
 
 function setupSwipeDelete(container){
   if(!container) return;
-  let tr=null;
 
-  container.addEventListener("touchstart",(e)=>{
-    const row=e.target.closest(".swipe-delete-row");
-    if(!row || e.touches.length!==1) return;
+  const OPEN_X=-84;
+  const MAX_X=-96;
+  const OPEN_THRESHOLD=-34;
+  let drag=null;
 
-    if(openSwipeRow && openSwipeRow!==row) closeSwipeRow(openSwipeRow);
+  const finishDrag=(cancelled=false)=>{
+    if(!drag) return;
+    const {row,content,dx,wasOpen,pointerId}=drag;
+    drag=null;
 
-    const t=e.touches[0];
-    tr={
-      row,
-      sx:t.clientX,
-      sy:t.clientY,
-      dx:0,
-      dy:0,
-      direction:null
-    };
+    try{ row.releasePointerCapture(pointerId); }catch(e){}
 
-    const c=row.querySelector(".swipe-delete-content");
-    if(c) c.style.transition="none";
-  },{passive:true});
+    row.classList.remove("swipe-dragging");
 
-  container.addEventListener("touchmove",(e)=>{
-    if(!tr || e.touches.length!==1) return;
-    const t=e.touches[0];
-    tr.dx=t.clientX-tr.sx;
-    tr.dy=t.clientY-tr.sy;
-
-    if(!tr.direction && (Math.abs(tr.dx)>10 || Math.abs(tr.dy)>10)){
-      tr.direction=Math.abs(tr.dx)>Math.abs(tr.dy)*1.25 ? "horizontal" : "vertical";
+    if(cancelled){
+      if(wasOpen) openSwipeDeleteRow(row);
+      else closeSwipeRow(row);
+      return;
     }
-    if(tr.direction!=="horizontal") return;
 
-    const row=tr.row;
-    const c=row.querySelector(".swipe-delete-content");
-    if(!c) return;
+    // 真正有水平拖曳時，阻擋 iOS/瀏覽器補送 click。
+    if(Math.abs(dx)>8) swipeClickBlockUntil=Date.now()+450;
 
-    const wasOpen=row.classList.contains("swipe-open");
-    const base=wasOpen ? -84 : 0;
-    const target=Math.max(-96,Math.min(0,base+tr.dx));
-
-    if(target < -8) row.classList.add("swipe-revealing");
-    else row.classList.remove("swipe-revealing");
-
-    c.style.transform=`translate3d(${target}px,0,0)`;
-  },{passive:true});
-
-  container.addEventListener("touchend",()=>{
-    if(!tr) return;
-    const {row,dx,direction}=tr;
-    tr=null;
-
-    if(direction!=="horizontal") return;
-
-    // 防止滑動結束後 iOS 再補送一個 click，誤打開編輯頁。
-    swipeClickBlockUntil=Date.now()+420;
-
-    const wasOpen=row.classList.contains("swipe-open");
-    if((!wasOpen && dx<=-42) || (wasOpen && dx<28)){
+    if((!wasOpen && dx<=OPEN_THRESHOLD) || (wasOpen && dx<30)){
       openSwipeDeleteRow(row);
     }else{
       closeSwipeRow(row);
     }
-  },{passive:true});
+  };
 
-  container.addEventListener("touchcancel",()=>{
-    if(tr?.row) closeSwipeRow(tr.row);
-    tr=null;
-  },{passive:true});
+  container.addEventListener("pointerdown",(e)=>{
+    if(e.pointerType==="mouse" && e.button!==0) return;
+
+    const row=e.target.closest(".swipe-delete-row");
+    if(!row) return;
+
+    // 已經露出的刪除按鈕本身要能直接點，不啟動拖曳。
+    if(e.target.closest(".swipe-delete-action")) return;
+
+    if(openSwipeRow && openSwipeRow!==row) closeSwipeRow(openSwipeRow);
+
+    const content=row.querySelector(".swipe-delete-content");
+    if(!content) return;
+
+    drag={
+      row,
+      content,
+      pointerId:e.pointerId,
+      startX:e.clientX,
+      startY:e.clientY,
+      dx:0,
+      dy:0,
+      axis:null,
+      wasOpen:row.classList.contains("swipe-open")
+    };
+
+    row.classList.add("swipe-dragging");
+    content.style.transition="none";
+
+    try{ row.setPointerCapture(e.pointerId); }catch(err){}
+  });
+
+  container.addEventListener("pointermove",(e)=>{
+    if(!drag || e.pointerId!==drag.pointerId) return;
+
+    drag.dx=e.clientX-drag.startX;
+    drag.dy=e.clientY-drag.startY;
+
+    if(!drag.axis && (Math.abs(drag.dx)>7 || Math.abs(drag.dy)>7)){
+      drag.axis=Math.abs(drag.dx)>Math.abs(drag.dy)*1.15 ? "x" : "y";
+    }
+
+    if(drag.axis!=="x") return;
+
+    // 水平拖曳由 App 接管；避免頁面本身吃掉這個手勢。
+    e.preventDefault();
+
+    const base=drag.wasOpen ? OPEN_X : 0;
+    let target=base+drag.dx;
+    target=Math.max(MAX_X,Math.min(0,target));
+
+    drag.content.style.transform=`translate3d(${target}px,0,0)`;
+
+    if(target<-6){
+      drag.row.classList.add("swipe-revealing");
+    }else{
+      drag.row.classList.remove("swipe-revealing");
+    }
+  },{passive:false});
+
+  container.addEventListener("pointerup",(e)=>{
+    if(!drag || e.pointerId!==drag.pointerId) return;
+    finishDrag(false);
+  });
+
+  container.addEventListener("pointercancel",(e)=>{
+    if(!drag || e.pointerId!==drag.pointerId) return;
+    finishDrag(true);
+  });
+
+  container.addEventListener("lostpointercapture",()=>{
+    if(drag) finishDrag(true);
+  });
 }
 
 function openDeleteConfirm(kind,id){
@@ -3199,7 +3278,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:24,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:24.2,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
@@ -3269,6 +3348,7 @@ setInterval(()=>{
   }
   // v18.1: 不再每秒重畫整個作品詳情，避免輸入框、捲動位置被重設。
   updateDetailLiveOnly();
+  updateHomeActiveLiveOnly();
 },1000);
 
 document.addEventListener("visibilitychange", ()=>{

@@ -66,6 +66,10 @@
               <div class="active-time-wrap">
                 <span id="activeTimeLabel">本次製作</span>
                 <div id="activeTimer" class="big-timer">00:00:00</div>
+                <div class="active-secondary-time">
+                  <span id="activeSecondaryLabel">作品總工時</span>
+                  <strong id="activeSecondaryTimer">00:00:00</strong>
+                </div>
               </div>
             </div>
           </div>
@@ -169,7 +173,7 @@
           <div>
             <span class="home-kicker">RECAP</span>
             <h1>作品回顧</h1>
-            <p>完成作品後，把一路累積的照片與工時整理成回顧影片。</p>
+            <p>完成作品後，把一路累積的照片、工時與回顧內容整理在這裡。</p>
           </div>
         </section>
         <div id="recapHubList" class="recap-hub-list"></div>
@@ -198,7 +202,7 @@
       </button>
       <button class="nav-item" data-view="recap">
         <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="m10 9 5 3-5 3z"/></svg>
-        <span>回顧影片</span>
+        <span>回顧</span>
       </button>
     </nav>
   </div>
@@ -234,7 +238,7 @@
         </button>
       </div>
 
-      <div class="menu-version">YarnTime v24</div>
+      <div class="menu-version">YarnTime v24.2</div>
     </div>
   </div>
 
@@ -790,7 +794,7 @@
     </div>
     <div class="settings-card">
       <h3>資料儲存狀態</h3>
-      <div class="storage-status-row"><span>版本</span><strong>YarnTime v24</strong></div>
+      <div class="storage-status-row"><span>版本</span><strong>YarnTime v24.2</strong></div>
       <div class="storage-status-row"><span>已使用空間</span><strong id="storageUsageText">計算中…</strong></div>
       <div class="storage-status-row"><span>持久儲存</span><strong id="storagePersistText">檢查中…</strong></div>
       <button id="requestPersistBtn" class="secondary-btn wide">提高資料保留機率</button>

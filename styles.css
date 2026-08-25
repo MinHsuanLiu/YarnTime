@@ -3155,3 +3155,107 @@ body.modal-open .modal-backdrop{
 .product-active.paused-current .active-project-photo{
   opacity:.92;
 }
+
+
+/* =========================================================
+   v24.1 — Swipe delete gesture fix
+   ========================================================= */
+
+/* Horizontal swipe is handled by Pointer Events.
+   Do not force pan-y on the row itself; iOS could cancel the gesture. */
+.swipe-delete-row{
+  touch-action:auto !important;
+  -webkit-user-select:none;
+  user-select:none;
+}
+
+.swipe-delete-row.swipe-dragging{
+  cursor:grabbing;
+}
+
+.swipe-delete-row.swipe-dragging .swipe-delete-content{
+  transition:none !important;
+}
+
+/* Delete stays fully hidden until the content actually moves left. */
+.swipe-delete-action{
+  opacity:0 !important;
+  visibility:hidden;
+  pointer-events:none !important;
+}
+
+.swipe-delete-row.swipe-revealing .swipe-delete-action,
+.swipe-delete-row.swipe-open .swipe-delete-action{
+  opacity:1 !important;
+  visibility:visible;
+}
+
+.swipe-delete-row.swipe-open .swipe-delete-action{
+  pointer-events:auto !important;
+  z-index:3 !important;
+}
+
+/* Content sits above delete area until slid left. */
+.swipe-delete-content{
+  z-index:2 !important;
+  transform:translate3d(0,0,0);
+}
+
+/* Make each milestone swipe region unmistakably full-width. */
+.milestone-swipe-row,
+.session-swipe-row{
+  width:100% !important;
+  min-width:0 !important;
+}
+
+.milestone-swipe-row .timeline-item,
+.session-swipe-row .session-row{
+  width:100% !important;
+  min-width:0 !important;
+}
+
+
+/* =========================================================
+   v24.2 — Dual time on current project hero
+   ========================================================= */
+
+.active-secondary-time{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:12px;
+  margin-top:7px;
+  padding-top:7px;
+  border-top:1px solid #E8DCCF;
+}
+
+.active-secondary-time span{
+  font-size:8px !important;
+  color:#9A8675;
+  font-weight:700;
+  letter-spacing:.02em;
+}
+
+.active-secondary-time strong{
+  font-family:"Nunito","PingFang TC","Microsoft JhengHei",sans-serif;
+  font-size:12px;
+  line-height:1;
+  color:var(--yt-ink);
+  font-weight:850;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+
+.product-active.paused-current .active-secondary-time{
+  border-top-color:#E2D8CE;
+}
+
+.product-active.paused-current .active-secondary-time strong{
+  color:#7F7064;
+}
+
+@media(max-width:430px){
+  .active-secondary-time strong{
+    font-size:11px;
+  }
+}
