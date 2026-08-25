@@ -3,6 +3,7 @@ const STORAGE_KEY = "yarntime_v1";
 let state = loadState();
 let detailProjectId = null;
 let currentDetailTab = "journal";
+let currentMainView = "home";
 let pendingLapProjectId = null;
 let pendingLapSnapshot = null;
 let pendingProjectPhotoFile = null;
@@ -1275,15 +1276,8 @@ function renderProjects(){
   document.getElementById("activeProjectCount").textContent=activeProjects.length;
   document.getElementById("completedProjectCount").textContent=completedProjects.length;
 
-  const sourceProjects=currentProjectFilter==="completed"?completedProjects:activeProjects;
-  // 正在製作的作品已經在上方 Hero 出現，列表不再重複一次。
-  const projects=currentProjectFilter==="active" && state.activeProjectId
-    ? sourceProjects.filter(p=>p.id!==state.activeProjectId)
-    : sourceProjects;
-
-  // 若只有一件正在製作中的作品，Hero 已經是內容，不顯示「沒有作品」。
-  const hasHeroOnly=currentProjectFilter==="active" && !!state.activeProjectId && sourceProjects.length>0;
-  empty.classList.toggle("hidden",projects.length>0 || hasHeroOnly);
+  const projects=currentProjectFilter==="completed"?completedProjects:activeProjects;
+  empty.classList.toggle("hidden",projects.length>0);
 
   const emptyTitle=document.getElementById("emptyStateTitle");
   const emptyText=document.getElementById("emptyStateText");
@@ -1354,6 +1348,118 @@ function renderProjects(){
   }).join("");
   applyProjectPhotos();
 }
+function formatHomeTime(ms){
+  if(ms>=3600000) return fmtHuman(ms);
+  if(ms>=60000) return `${Math.round(ms/60000)} 分鐘`;
+  return ms>0?"不到 1 分鐘":"0 分鐘";
+}
+
+function renderHome(){
+  const running=state.activeProjectId?getProject(state.activeProjectId):null;
+  document.getElementById("homeNoActive").classList.toggle("hidden",!!(running&&running.isRunning));
+
+  const recent=state.projects
+    .filter(p=>p.id!==state.activeProjectId)
+    .sort((a,b)=>(b.lastWorkedAt||b.completedAt||b.createdAt||0)-(a.lastWorkedAt||a.completedAt||a.createdAt||0))
+    .slice(0,3);
+
+  const list=document.getElementById("homeRecentList");
+  const empty=document.getElementById("homeRecentEmpty");
+  empty.classList.toggle("hidden",recent.length>0);
+
+  list.innerHTML=recent.map(p=>`
+    <button class="home-project-card" data-home-project="${p.id}">
+      <div class="home-project-photo">
+        <img class="hidden" data-photo-project="${p.id}" alt="${escapeHTML(p.name)}">
+        <span class="project-fallback">${craftMarkSVG(p.type)}</span>
+      </div>
+      <div class="home-project-copy">
+        <span class="home-project-type">${escapeHTML(p.type)}${p.isCompleted?" · 已完成":""}</span>
+        <strong>${escapeHTML(p.name)}</strong>
+        <small>${fmtHuman(elapsedMs(p))} · ${p.sessions?.length||0} 次製作</small>
+      </div>
+      <span class="home-project-chevron">›</span>
+    </button>
+  `).join("");
+  applyProjectPhotos();
+
+  const monthStart=localMonthStart(Date.now());
+  const nextMonth=new Date(monthStart); nextMonth.setMonth(nextMonth.getMonth()+1);
+  const monthMs=state.projects.reduce((sum,p)=>sum+projectSessionDurationInRange(p,monthStart.getTime(),nextMonth.getTime()),0);
+  const wip=state.projects.filter(p=>!p.isCompleted).length;
+  const completed=state.projects.filter(p=>p.isCompleted && (p.completedAt||0)>=monthStart.getTime() && (p.completedAt||0)<nextMonth.getTime()).length;
+
+  document.getElementById("homeMonthTime").textContent=formatHomeTime(monthMs);
+  document.getElementById("homeWipCount").textContent=`${wip} 件`;
+  document.getElementById("homeCompletedCount").textContent=`${completed} 件`;
+}
+
+async function applyRecapHubPhotos(){
+  const imgs=[...document.querySelectorAll("img[data-recap-project]")];
+  await Promise.all(imgs.map(async img=>{
+    const id=img.dataset.recapProject;
+    const url=await getProjectPhotoUrl(id);
+    if(!img.isConnected) return;
+    const fallback=img.parentElement?.querySelector(".recap-hub-fallback");
+    if(url){
+      img.src=url; img.classList.remove("hidden"); fallback?.classList.add("hidden");
+    }else{
+      img.removeAttribute("src"); img.classList.add("hidden"); fallback?.classList.remove("hidden");
+    }
+  }));
+}
+
+function renderRecapHub(){
+  const projects=state.projects
+    .filter(p=>p.isCompleted)
+    .sort((a,b)=>(b.completedAt||0)-(a.completedAt||0));
+  const list=document.getElementById("recapHubList");
+  const empty=document.getElementById("recapHubEmpty");
+  empty.classList.toggle("hidden",projects.length>0);
+
+  list.innerHTML=projects.map(p=>`
+    <article class="recap-hub-card">
+      <button class="recap-hub-main" data-recap-detail="${p.id}">
+        <div class="recap-hub-photo">
+          <img class="hidden" data-recap-project="${p.id}" alt="${escapeHTML(p.name)}">
+          <span class="recap-hub-fallback">${craftMarkSVG(p.type)}</span>
+        </div>
+        <div class="recap-hub-copy">
+          <span>已完成 · ${formatCardDate(p.completedAt)}</span>
+          <strong>${escapeHTML(p.name)}</strong>
+          <small>總工時 ${fmtHuman(elapsedMs(p))} · ${p.laps?.length||0} 個里程碑</small>
+        </div>
+      </button>
+      <div class="recap-hub-actions">
+        <button class="recap-hub-video-btn" data-recap-video="${p.id}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="m10 9 5 3-5 3z"/></svg>
+          生成回顧影片
+        </button>
+      </div>
+    </article>
+  `).join("");
+  applyRecapHubPhotos();
+}
+
+function switchMainView(view){
+  currentMainView=view;
+  const map={home:"homeView",projects:"projectsView",stats:"statsView",recap:"recapHubView"};
+  document.querySelectorAll(".main-view").forEach(v=>v.classList.add("hidden"));
+  const target=document.getElementById(map[view]||"homeView");
+  target?.classList.remove("hidden");
+
+  document.querySelectorAll(".nav-item").forEach(btn=>{
+    btn.classList.toggle("active",btn.dataset.view===view);
+  });
+
+  if(view==="home"){ renderActive(); renderHome(); }
+  if(view==="projects") renderProjects();
+  if(view==="stats") renderStats();
+  if(view==="recap") renderRecapHub();
+
+  window.scrollTo({top:0,behavior:"auto"});
+}
+
 function renderActive(){
   const card=document.getElementById("activeCard");
   const p=state.activeProjectId?getProject(state.activeProjectId):null;
@@ -1767,7 +1873,14 @@ function updateDetailLiveOnly(){
   }
 }
 
-function renderAll(){ renderProjects(); renderActive(); renderDetail(); renderStats(); }
+function renderAll(){
+  renderProjects();
+  renderActive();
+  renderHome();
+  renderDetail();
+  renderStats();
+  renderRecapHub();
+}
 
 const modalStack=[];
 
@@ -2496,8 +2609,8 @@ document.getElementById("downloadResumeBtn").onclick=async()=>{
 };
 
 
-document.getElementById("recapVideoBtn").onclick=()=>{
-  const p=getProject(detailProjectId); if(!p || !p.isCompleted) return;
+function openRecapForProject(projectId){
+  const p=getProject(projectId); if(!p || !p.isCompleted) return;
   latestRecapBlob=null;
   latestRecapProjectId=p.id;
   if(latestRecapUrl){ URL.revokeObjectURL(latestRecapUrl); latestRecapUrl=null; }
@@ -2511,6 +2624,10 @@ document.getElementById("recapVideoBtn").onclick=()=>{
   document.getElementById("downloadRecapBtn").classList.add("hidden");
   document.getElementById("createRecapBtn").classList.remove("hidden");
   openModal("recapModal");
+}
+
+document.getElementById("recapVideoBtn").onclick=()=>{
+  if(detailProjectId) openRecapForProject(detailProjectId);
 };
 
 document.getElementById("createRecapBtn").onclick=async()=>{
@@ -2612,17 +2729,63 @@ document.getElementById("requestPersistBtn").onclick=async()=>{
   }
 };
 
-document.querySelectorAll(".nav-item").forEach(btn=>btn.onclick=()=>{
-  document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
-  btn.classList.add("active");
-  document.getElementById("statsView").classList.add("hidden");
-  document.getElementById("settingsView").classList.add("hidden");
-  if(btn.dataset.view==="stats"){ renderStats(); document.getElementById("statsView").classList.remove("hidden"); }
-  if(btn.dataset.view==="settings"){
-    document.getElementById("settingsView").classList.remove("hidden");
-    refreshStorageStatus();
-  }
+document.querySelectorAll(".nav-item").forEach(btn=>{
+  btn.onclick=()=>switchMainView(btn.dataset.view);
 });
+
+function openSettings(){
+  document.getElementById("settingsView").classList.remove("hidden");
+  document.body.classList.add("settings-open");
+  refreshStorageStatus();
+}
+function closeSettings(){
+  document.getElementById("settingsView").classList.add("hidden");
+  document.body.classList.remove("settings-open");
+}
+
+document.getElementById("settingsBtn").onclick=openSettings;
+document.getElementById("settingsCloseBtn").onclick=closeSettings;
+document.getElementById("menuBtn").onclick=()=>openModal("menuModal");
+
+document.getElementById("menuAddProjectBtn").onclick=()=>{
+  closeModal("menuModal");
+  document.getElementById("addProjectBtn").click();
+};
+document.getElementById("menuProjectsBtn").onclick=()=>{
+  closeModal("menuModal");
+  switchMainView("projects");
+};
+document.getElementById("menuBackupBtn").onclick=()=>{
+  closeModal("menuModal");
+  openSettings();
+};
+
+document.getElementById("viewAllProjectsBtn").onclick=()=>switchMainView("projects");
+document.getElementById("homeStartProjectBtn").onclick=()=>switchMainView("projects");
+
+document.getElementById("homeRecentList").onclick=(e)=>{
+  const card=e.target.closest("[data-home-project]");
+  if(!card) return;
+  detailProjectId=card.dataset.homeProject;
+  currentDetailTab="journal";
+  renderDetail();
+  openModal("detailModal");
+};
+
+document.getElementById("recapHubList").onclick=(e)=>{
+  const videoBtn=e.target.closest("[data-recap-video]");
+  if(videoBtn){
+    openRecapForProject(videoBtn.dataset.recapVideo);
+    return;
+  }
+  const detailBtn=e.target.closest("[data-recap-detail]");
+  if(detailBtn){
+    detailProjectId=detailBtn.dataset.recapDetail;
+    currentDetailTab="journal";
+    renderDetail();
+    openModal("detailModal");
+  }
+};
 
 document.getElementById("exportBtn").onclick=async()=>{
   const btn=document.getElementById("exportBtn");
@@ -2639,7 +2802,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:20,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:21,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
