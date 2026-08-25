@@ -3,6 +3,7 @@ const STORAGE_KEY = "yarntime_v1";
 let state = loadState();
 let detailProjectId = null;
 let pendingLapProjectId = null;
+let pendingLapSnapshot = null;
 
 function defaultState(){ return {projects:[], activeProjectId:null}; }
 function loadState(){
@@ -62,7 +63,7 @@ function toggleProject(id){
   saveState(); renderAll();
 }
 function createProject(name,type,note){
-  const p={id:uuid(),name,type,note,createdAt:now(),accumulatedMs:0,isRunning:false,startedAt:null,laps:[]};
+  const p={id:uuid(),name,type,note,createdAt:now(),accumulatedMs:0,isRunning:false,startedAt:null,laps:[],lapBaselineMs:0};
   state.projects.unshift(p); saveState(); return p;
 }
 
@@ -108,11 +109,26 @@ function renderDetail(){
   document.getElementById("detailLapCount").textContent=p.laps?.length||0;
   document.getElementById("detailNote").textContent=p.note?.trim()||"—";
   const lapList=document.getElementById("lapList");
-  const laps=(p.laps||[]).slice().reverse();
+  // 舊版只存 totalMs，所以顯示時也能由前一個累積時間推回「本段時間」。
+  let previousTotal = p.lapBaselineMs || 0;
+  const chronologicalLaps=(p.laps||[]).map(l=>{
+    const segmentMs = Number.isFinite(l.segmentMs)
+      ? l.segmentMs
+      : Math.max(0, (l.totalMs||0) - previousTotal);
+    previousTotal = l.totalMs||previousTotal;
+    return {...l, segmentMs};
+  });
+  const laps=chronologicalLaps.slice().reverse();
   lapList.innerHTML=laps.length?laps.map(l=>`
     <div class="lap-item">
-      <div><strong>${escapeHTML(l.name||"未命名分段")}</strong><small>${new Date(l.at).toLocaleString("zh-TW")}</small></div>
-      <div>${fmt(l.totalMs)}</div>
+      <div class="lap-info">
+        <strong>${escapeHTML(l.name||"未命名分段")}</strong>
+        <small>${new Date(l.at).toLocaleString("zh-TW")}</small>
+      </div>
+      <div class="lap-times">
+        <div class="lap-time lap-segment"><span>本段</span><strong>${fmt(l.segmentMs)}</strong></div>
+        <div class="lap-time lap-total"><span>累積</span><strong>${fmt(l.totalMs)}</strong></div>
+      </div>
     </div>
   `).join(""):`<p>還沒有分段紀錄。</p>`;
 }
@@ -164,33 +180,46 @@ document.getElementById("projectList").onclick=(e)=>{
 
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>closeModal(b.dataset.close));
 
+function beginLap(id){
+  const p=getProject(id); if(!p) return;
+  pendingLapProjectId=id;
+  // 在按下「分段」的瞬間就固定分段邊界，避免輸入名稱的時間被算進上一段。
+  pendingLapSnapshot={at:now(), totalMs:elapsedMs(p)};
+  document.getElementById("lapNameInput").value="";
+  openModal("lapModal");
+}
+
 document.getElementById("pauseActiveBtn").onclick=()=>{
   if(state.activeProjectId) toggleProject(state.activeProjectId);
 };
 document.getElementById("lapActiveBtn").onclick=()=>{
   if(!state.activeProjectId) return;
-  pendingLapProjectId=state.activeProjectId;
-  document.getElementById("lapNameInput").value="";
-  openModal("lapModal");
+  beginLap(state.activeProjectId);
 };
 document.getElementById("detailStartPauseBtn").onclick=()=>{
   if(detailProjectId) toggleProject(detailProjectId);
 };
 document.getElementById("detailLapBtn").onclick=()=>{
   if(!detailProjectId) return;
-  pendingLapProjectId=detailProjectId;
-  document.getElementById("lapNameInput").value="";
-  openModal("lapModal");
+  beginLap(detailProjectId);
 };
 document.getElementById("saveLapBtn").onclick=()=>{
   const p=getProject(pendingLapProjectId); if(!p) return;
   const name=document.getElementById("lapNameInput").value.trim()||`分段 ${p.laps.length+1}`;
-  p.laps.push({id:uuid(),name,at:now(),totalMs:elapsedMs(p)});
+  const snapshot=pendingLapSnapshot || {at:now(), totalMs:elapsedMs(p)};
+  const previousBoundary = p.laps.length
+    ? (p.laps[p.laps.length-1].totalMs||0)
+    : (p.lapBaselineMs||0);
+  const segmentMs=Math.max(0, snapshot.totalMs-previousBoundary);
+  p.laps.push({id:uuid(),name,at:snapshot.at,totalMs:snapshot.totalMs,segmentMs});
+  pendingLapSnapshot=null;
   saveState(); closeModal("lapModal"); renderAll();
 };
 document.getElementById("clearLapsBtn").onclick=()=>{
   const p=getProject(detailProjectId); if(!p) return;
   if(confirm("確定要清除這個作品的所有分段紀錄嗎？")){
+    // 清除後從「目前累積時間」重新當作下一段的起點。
+    p.lapBaselineMs=elapsedMs(p);
     p.laps=[]; saveState(); renderAll();
   }
 };

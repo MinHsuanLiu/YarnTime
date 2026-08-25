@@ -94,3 +94,19 @@ input:focus,textarea:focus,select:focus{border-color:#DDA35B}
   .big-timer{font-size:38px}
   h1{font-size:25px}
 }
+
+/* v2: 分段紀錄同時顯示本段時間與累積時間 */
+.lap-info{min-width:0;flex:1}
+.lap-info strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lap-times{display:grid;gap:5px;flex:0 0 auto;text-align:right;font-variant-numeric:tabular-nums}
+.lap-time{display:flex;align-items:baseline;justify-content:flex-end;gap:8px}
+.lap-time span{font-size:11px;color:var(--muted)}
+.lap-time strong{font-size:14px;min-width:72px}
+.lap-segment strong{color:var(--accent)}
+.lap-total strong{color:var(--ink)}
+@media (max-width:390px){
+  .lap-item{align-items:flex-start}
+  .lap-times{gap:3px}
+  .lap-time{gap:5px}
+  .lap-time strong{font-size:13px;min-width:68px}
+}
