@@ -2,6 +2,7 @@
 const STORAGE_KEY = "yarntime_v1";
 let state = loadState();
 let detailProjectId = null;
+let currentDetailTab = "journal";
 let pendingLapProjectId = null;
 let pendingLapSnapshot = null;
 let pendingProjectPhotoFile = null;
@@ -1274,8 +1275,15 @@ function renderProjects(){
   document.getElementById("activeProjectCount").textContent=activeProjects.length;
   document.getElementById("completedProjectCount").textContent=completedProjects.length;
 
-  const projects=currentProjectFilter==="completed"?completedProjects:activeProjects;
-  empty.classList.toggle("hidden",projects.length>0);
+  const sourceProjects=currentProjectFilter==="completed"?completedProjects:activeProjects;
+  // 正在製作的作品已經在上方 Hero 出現，列表不再重複一次。
+  const projects=currentProjectFilter==="active" && state.activeProjectId
+    ? sourceProjects.filter(p=>p.id!==state.activeProjectId)
+    : sourceProjects;
+
+  // 若只有一件正在製作中的作品，Hero 已經是內容，不顯示「沒有作品」。
+  const hasHeroOnly=currentProjectFilter==="active" && !!state.activeProjectId && sourceProjects.length>0;
+  empty.classList.toggle("hidden",projects.length>0 || hasHeroOnly);
 
   const emptyTitle=document.getElementById("emptyStateTitle");
   const emptyText=document.getElementById("emptyStateText");
@@ -1349,10 +1357,20 @@ function renderProjects(){
 function renderActive(){
   const card=document.getElementById("activeCard");
   const p=state.activeProjectId?getProject(state.activeProjectId):null;
-  if(!p || !p.isRunning){ card.classList.add("hidden"); return; }
+  if(!p || !p.isRunning){
+    card.classList.add("hidden");
+    const img=document.getElementById("activeProjectPhoto");
+    if(img){
+      img.dataset.projectId="";
+      img.dataset.noPhoto="";
+      img.removeAttribute("src");
+    }
+    return;
+  }
   card.classList.remove("hidden");
   document.getElementById("activeName").textContent=p.name;
   document.getElementById("activeTimer").textContent=fmt(elapsedMs(p));
+  renderActiveProjectPhoto(p);
 }
 
 async function applyLapPhotos(projectId){
@@ -1372,6 +1390,44 @@ async function applyLapPhotos(projectId){
       wrap?.classList.remove("has-photo");
     }
   }));
+}
+
+function applyDetailTab(tab=currentDetailTab){
+  currentDetailTab=tab;
+  document.querySelectorAll("#detailTabs .detail-tab").forEach(btn=>{
+    btn.classList.toggle("active",btn.dataset.detailTab===tab);
+  });
+  document.querySelectorAll("#detailModal .detail-panel").forEach(panel=>{
+    const shouldShow=panel.classList.contains(`detail-panel-${tab}`);
+    panel.classList.toggle("detail-panel-off",!shouldShow);
+  });
+}
+
+async function renderActiveProjectPhoto(p){
+  const img=document.getElementById("activeProjectPhoto");
+  const fallback=document.getElementById("activeProjectFallback");
+  if(!img || !fallback || !p) return;
+
+  fallback.innerHTML=craftMarkSVG(p.type);
+
+  // Don't hit IndexedDB once per second for the same running project.
+  if(img.dataset.projectId===p.id && (img.src || img.dataset.noPhoto==="1")) return;
+
+  img.dataset.projectId=p.id;
+  img.dataset.noPhoto="";
+  const url=await getProjectPhotoUrl(p.id);
+  if(img.dataset.projectId!==p.id) return;
+
+  if(url){
+    img.src=url;
+    img.classList.remove("hidden");
+    fallback.classList.add("hidden");
+  }else{
+    img.removeAttribute("src");
+    img.classList.add("hidden");
+    fallback.classList.remove("hidden");
+    img.dataset.noPhoto="1";
+  }
 }
 
 function renderSellerPricingResult(p){
@@ -1587,6 +1643,7 @@ function renderDetail(){
   }
 
   applyLapPhotos(p.id);
+  applyDetailTab(currentDetailTab);
 }
 
 function renderStats(){
@@ -1897,7 +1954,10 @@ document.getElementById("projectList").onclick=(e)=>{
   const id=btn.dataset.id;
   if(btn.dataset.action==="toggle") toggleProject(id);
   if(btn.dataset.action==="detail"){
-    detailProjectId=id; renderDetail(); openModal("detailModal");
+    detailProjectId=id;
+    currentDetailTab="journal";
+    renderDetail();
+    openModal("detailModal");
   }
 };
 
@@ -1926,6 +1986,18 @@ document.addEventListener("keydown",(e)=>{
     e.preventDefault();
     closeTopModal();
   }
+});
+
+document.querySelectorAll("#detailTabs [data-detail-tab]").forEach(btn=>{
+  btn.onclick=()=>{
+    applyDetailTab(btn.dataset.detailTab);
+    const sheet=document.querySelector("#detailModal .modal-sheet");
+    const tabs=document.getElementById("detailTabs");
+    if(sheet && tabs){
+      const target=Math.max(0,tabs.offsetTop-10);
+      sheet.scrollTo({top:target,behavior:"smooth"});
+    }
+  };
 });
 
 document.getElementById("loadMoreSessionsBtn").onclick=()=>{
@@ -2067,7 +2139,10 @@ document.getElementById("pauseActiveBtn").onclick=()=>{
 };
 document.getElementById("lapActiveBtn").onclick=()=>{
   if(!state.activeProjectId) return;
-  beginLap(state.activeProjectId);
+  detailProjectId=state.activeProjectId;
+  currentDetailTab="journal";
+  renderDetail();
+  openModal("detailModal");
 };
 document.getElementById("detailStartPauseBtn").onclick=()=>{
   if(detailProjectId) toggleProject(detailProjectId);
@@ -2564,7 +2639,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:19,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:20,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);

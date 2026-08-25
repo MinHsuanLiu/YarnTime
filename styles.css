@@ -1882,3 +1882,431 @@ p,
 .resume-footnote{
   font-weight:500;
 }
+
+
+/* =========================================================
+   v20 — Product UI Rework
+   photo-first / fewer visible controls / layered detail
+   ========================================================= */
+
+/* HOME --------------------------------------------------- */
+.brand-header{
+  margin-bottom:10px !important;
+}
+
+.product-active{
+  background:#FFFCF8 !important;
+  color:var(--yt-ink) !important;
+  border:1px solid #E5D7C8 !important;
+  border-radius:24px !important;
+  padding:12px !important;
+  box-shadow:0 12px 30px rgba(73,56,44,.07) !important;
+  margin:13px 0 28px !important;
+}
+
+.product-active:before{
+  display:none !important;
+}
+
+.active-project-hero{
+  display:grid;
+  grid-template-columns:116px minmax(0,1fr);
+  gap:14px;
+  align-items:stretch;
+}
+
+.active-project-photo{
+  position:relative;
+  width:116px;
+  min-height:146px;
+  border-radius:17px;
+  overflow:hidden;
+  background:#F0E6DA;
+  border:1px solid #E4D5C4;
+}
+
+.active-project-photo img{
+  width:100%;
+  height:100%;
+  min-height:146px;
+  object-fit:cover;
+  display:block;
+}
+
+.active-project-fallback{
+  width:100%;
+  height:100%;
+  min-height:146px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#A48466;
+}
+
+.active-project-fallback .craft-mark-svg{
+  width:55px;
+  height:55px;
+}
+
+.active-project-copy{
+  min-width:0;
+  padding:7px 4px 4px 0;
+  display:flex;
+  flex-direction:column;
+}
+
+.active-project-heading{
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  align-items:flex-start;
+}
+
+.product-active .active-now-label{
+  color:var(--yt-orange) !important;
+  font-size:8px;
+}
+
+.product-active .active-now-label i{
+  width:6px;
+  height:6px;
+  box-shadow:none;
+}
+
+.product-active h2{
+  color:var(--yt-ink) !important;
+  font-size:20px !important;
+  margin:5px 0 0 !important;
+  line-height:1.2;
+}
+
+.product-active .status-pill{
+  flex:0 0 auto;
+  background:#F1E9E0 !important;
+  color:#887667 !important;
+  font-size:8px !important;
+  padding:5px 8px !important;
+}
+
+.product-active .active-time-wrap{
+  margin:auto 0 0 !important;
+  text-align:left;
+}
+
+.product-active .active-time-wrap>span{
+  text-align:left !important;
+  color:#9B8879 !important;
+  font-size:8px;
+}
+
+.product-active .big-timer{
+  color:var(--yt-orange) !important;
+  text-align:left !important;
+  font-size:34px !important;
+  line-height:1;
+  margin-top:4px !important;
+}
+
+.product-active .active-actions{
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:9px !important;
+  margin-top:11px !important;
+}
+
+.product-active .active-actions button{
+  min-height:46px;
+  font-size:12px;
+  border-radius:14px !important;
+}
+
+.product-active .primary-btn{
+  background:var(--yt-orange) !important;
+}
+
+.product-active .secondary-btn{
+  background:#FFF !important;
+  color:var(--yt-ink) !important;
+  border:1px solid #D7C5B3 !important;
+}
+
+.identity-section-head{
+  margin-top:0 !important;
+  margin-bottom:7px !important;
+}
+
+.identity-section-head h2{
+  font-size:22px !important;
+}
+
+.project-tabs{
+  margin-bottom:4px !important;
+}
+
+/* More photo-forward project list */
+.identity-project-card{
+  padding:16px 0 !important;
+}
+
+.project-visual{
+  width:78px !important;
+  height:90px !important;
+  flex-basis:78px !important;
+}
+
+.identity-project-card .project-main{
+  padding-top:5px !important;
+}
+
+.identity-project-card .project-title{
+  font-size:17px !important;
+}
+
+.identity-project-card .project-journal-meta{
+  margin-top:6px !important;
+}
+
+.identity-project-card .project-actions{
+  margin-left:89px !important;
+  max-width:calc(100% - 89px) !important;
+}
+
+/* DETAIL ------------------------------------------------- */
+#detailModal .modal-sheet.tall{
+  background:#FCF8F2 !important;
+  padding-left:18px;
+  padding-right:18px;
+}
+
+#detailModal .sheet-head{
+  padding-bottom:8px;
+  margin-bottom:5px !important;
+}
+
+#detailModal #detailName{
+  font-size:24px !important;
+}
+
+.detail-photo-section{
+  margin-top:3px;
+}
+
+.detail-photo-card{
+  height:235px !important;
+  border-radius:20px !important;
+  border:1px solid #E3D6C8;
+  overflow:hidden;
+  background:#EEE5DB !important;
+}
+
+.detail-photo-img{
+  object-fit:cover;
+}
+
+.detail-photo-actions{
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:4px !important;
+}
+
+#detailModal .timer-label{
+  margin-top:15px !important;
+  text-align:center;
+}
+
+#detailModal .detail-total-timer{
+  text-align:center;
+  font-size:48px !important;
+  color:var(--yt-ink);
+  margin:3px 0 13px !important;
+}
+
+#detailModal .detail-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:9px;
+  max-width:none !important;
+}
+
+#detailModal .detail-actions button{
+  min-height:46px;
+  font-size:12px;
+  border-radius:14px !important;
+}
+
+#detailModal .info-grid-3{
+  margin:13px 0 7px !important;
+  background:transparent;
+}
+
+#detailModal .info-card{
+  padding:11px 6px !important;
+}
+
+/* Completed summary stays visible as the finished hero */
+.completed-conclusion{
+  margin-top:15px !important;
+  border-radius:18px !important;
+  padding:15px !important;
+}
+
+/* The key change: three simple layers instead of one endless page */
+.detail-tabs{
+  position:sticky;
+  top:-1px;
+  z-index:5;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:0;
+  margin:20px -18px 0;
+  padding:0 18px;
+  background:rgba(252,248,242,.96);
+  backdrop-filter:blur(16px);
+  border-top:1px solid var(--yt-line);
+  border-bottom:1px solid var(--yt-line);
+}
+
+.detail-tab{
+  position:relative;
+  min-height:48px;
+  border:0;
+  background:transparent;
+  color:#9B8879;
+  font-size:12px;
+  font-weight:750;
+}
+
+.detail-tab.active{
+  color:var(--yt-ink);
+}
+
+.detail-tab.active:after{
+  content:"";
+  position:absolute;
+  left:25%;
+  right:25%;
+  bottom:-1px;
+  height:2px;
+  background:var(--yt-orange);
+  border-radius:999px;
+}
+
+.detail-panel-off{
+  display:none !important;
+}
+
+/* Panels no longer look like a stack of separate widgets */
+#detailModal .subsection{
+  margin-top:23px !important;
+}
+
+#detailModal .subsection-head{
+  margin-bottom:4px !important;
+}
+
+#detailModal .subsection-head h3{
+  font-size:16px !important;
+}
+
+#detailModal .subsection-head p{
+  max-width:230px;
+}
+
+#detailModal .session-row,
+#detailModal .project-info-item{
+  min-height:48px;
+}
+
+#detailModal .project-info-grid{
+  grid-template-columns:1fr !important;
+}
+
+#detailModal .project-info-item{
+  display:grid;
+  grid-template-columns:92px minmax(0,1fr);
+  align-items:center;
+  gap:12px;
+}
+
+#detailModal .project-info-item strong{
+  text-align:right;
+  font-size:11px;
+}
+
+#detailModal .note-text{
+  min-height:58px;
+  padding:13px 0;
+  border-top:1px solid var(--yt-line);
+  border-bottom:1px solid var(--yt-line);
+}
+
+#detailModal .completion-card{
+  margin-top:23px !important;
+  padding:15px 0 !important;
+}
+
+#detailModal .seller-pricing-section{
+  background:transparent !important;
+  border:0 !important;
+  padding:0 !important;
+}
+
+#detailModal .danger-zone{
+  margin-top:30px;
+  padding-bottom:24px;
+}
+
+/* When the only list item was the running hero, don't leave a fake gap */
+#projectList:empty{
+  display:none;
+}
+
+@media(max-width:430px){
+  .active-project-hero{
+    grid-template-columns:104px minmax(0,1fr);
+    gap:12px;
+  }
+
+  .active-project-photo{
+    width:104px;
+    min-height:136px;
+  }
+
+  .active-project-photo img,
+  .active-project-fallback{
+    min-height:136px;
+  }
+
+  .product-active .big-timer{
+    font-size:31px !important;
+  }
+
+  .project-visual{
+    width:70px !important;
+    height:84px !important;
+    flex-basis:70px !important;
+  }
+
+  .identity-project-card .project-actions{
+    margin-left:81px !important;
+    max-width:calc(100% - 81px) !important;
+  }
+
+  .detail-photo-card{
+    height:220px !important;
+  }
+}
+
+@media(max-width:360px){
+  .active-project-hero{
+    grid-template-columns:88px minmax(0,1fr);
+  }
+
+  .active-project-photo{
+    width:88px;
+  }
+
+  .product-active .big-timer{
+    font-size:27px !important;
+  }
+}

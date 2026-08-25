@@ -36,22 +36,32 @@
     </header>
 
     <main>
-      <section id="activeCard" class="active-card identity-active hidden">
-        <div class="identity-thread-line" aria-hidden="true"><span></span></div>
-        <div class="active-top">
-          <div>
-            <div class="active-now-label"><i></i> NOW MAKING</div>
-            <h2 id="activeName">—</h2>
+      <section id="activeCard" class="active-card identity-active product-active hidden">
+        <div class="active-project-hero">
+          <div class="active-project-photo">
+            <img id="activeProjectPhoto" class="hidden" alt="正在製作的作品照片">
+            <span id="activeProjectFallback" class="active-project-fallback" aria-hidden="true"></span>
           </div>
-          <span class="status-pill">正在計時</span>
+
+          <div class="active-project-copy">
+            <div class="active-project-heading">
+              <div>
+                <div class="active-now-label"><i></i> NOW MAKING</div>
+                <h2 id="activeName">—</h2>
+              </div>
+              <span class="status-pill">正在計時</span>
+            </div>
+
+            <div class="active-time-wrap">
+              <span>本次累積</span>
+              <div id="activeTimer" class="big-timer">00:00:00</div>
+            </div>
+          </div>
         </div>
-        <div class="active-time-wrap">
-          <span>本次累積</span>
-          <div id="activeTimer" class="big-timer">00:00:00</div>
-        </div>
+
         <div class="active-actions">
           <button id="pauseActiveBtn" class="primary-btn">暫停</button>
-          <button id="lapActiveBtn" class="secondary-btn">記錄進度</button>
+          <button id="lapActiveBtn" class="secondary-btn">作品日誌</button>
         </div>
       </section>
 
@@ -59,7 +69,6 @@
         <div>
           <div class="section-kicker">MY MAKES</div>
           <h2>我的作品</h2>
-          <p>每一件，都有自己的時間。</p>
         </div>
         <span class="section-thread" aria-hidden="true"></span>
       </section>
@@ -200,7 +209,7 @@
             <span class="detail-photo-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M4 7.5h4l1.4-2h5.2l1.4 2h4v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg>
             </span>
-            <span>加入作品照片</span>
+            <span>加入照片</span>
           </div>
         </button>
         <div class="detail-photo-actions">
@@ -231,7 +240,7 @@
         <div class="info-card"><span>製作次數</span><strong id="detailSessionCount">0</strong></div>
       </div>
 
-      <section class="completion-card">
+      <section class="completion-card detail-panel detail-panel-more">
         <div>
           <div class="eyebrow">MAKE STATUS</div>
           <h3 id="completionTitle">製作中</h3>
@@ -265,7 +274,13 @@
         </div>
       </section>
 
-      <div class="subsection session-section">
+      <nav id="detailTabs" class="detail-tabs" aria-label="作品內容">
+        <button class="detail-tab active" data-detail-tab="journal">日誌</button>
+        <button class="detail-tab" data-detail-tab="info">作品資料</button>
+        <button class="detail-tab" data-detail-tab="more">更多</button>
+      </nav>
+
+      <div class="subsection session-section detail-panel detail-panel-journal">
         <div class="subsection-head">
           <div>
             <h3>製作紀錄</h3>
@@ -281,7 +296,7 @@
         <button id="loadMoreSessionsBtn" class="load-more-btn hidden">顯示更多製作紀錄</button>
       </div>
 
-      <div class="subsection journal-section">
+      <div class="subsection journal-section detail-panel detail-panel-journal">
         <div class="subsection-head">
           <div>
             <h3>里程碑</h3>
@@ -297,7 +312,7 @@
         <button id="loadMoreLapsBtn" class="load-more-btn hidden">顯示更多里程碑</button>
       </div>
 
-      <div class="subsection project-info-section">
+      <div class="subsection project-info-section detail-panel detail-panel-info">
         <div class="subsection-head">
           <div>
             <h3>作品資訊</h3>
@@ -308,7 +323,7 @@
         <div id="projectInfoGrid" class="project-info-grid"></div>
       </div>
 
-      <section id="sellerPricingSection" class="subsection seller-pricing-section hidden">
+      <section id="sellerPricingSection" class="subsection seller-pricing-section detail-panel detail-panel-more hidden">
         <div class="subsection-head">
           <div>
             <h3>售價透視</h3>
@@ -395,12 +410,12 @@
         <button id="saveSellerPricingBtn" class="secondary-btn wide">儲存售價設定</button>
       </section>
 
-      <div class="subsection">
+      <div class="subsection detail-panel detail-panel-info">
         <h3>作品備註</h3>
         <p id="detailNote" class="note-text">—</p>
       </div>
 
-      <div class="danger-zone">
+      <div class="danger-zone detail-panel detail-panel-more">
         <button id="deleteProjectBtn" class="danger-btn">刪除這個作品</button>
       </div>
     </div>
@@ -639,7 +654,7 @@
     </div>
     <div class="settings-card">
       <h3>資料儲存狀態</h3>
-      <div class="storage-status-row"><span>版本</span><strong>YarnTime v19</strong></div>
+      <div class="storage-status-row"><span>版本</span><strong>YarnTime v20</strong></div>
       <div class="storage-status-row"><span>已使用空間</span><strong id="storageUsageText">計算中…</strong></div>
       <div class="storage-status-row"><span>持久儲存</span><strong id="storagePersistText">檢查中…</strong></div>
       <button id="requestPersistBtn" class="secondary-btn wide">提高資料保留機率</button>
