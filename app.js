@@ -1396,9 +1396,18 @@ function renderHome(){
   const list=document.getElementById("homeRecentList");
   const empty=document.getElementById("homeRecentEmpty");
   const quickAdd=document.getElementById("homeQuickAddProjectBtn");
+  const recentHead=document.getElementById("homeRecentHead");
   const hasProjects=state.projects.length>0;
+  const hasOtherRecent=recent.length>0;
 
-  // 首頁新增入口明確二選一，不再依賴 CSS 優先權。
+  // 最近製作只顯示「目前作品以外」的作品。
+  // 如果只有目前這一件，就不顯示空的標題與清單。
+  recentHead.classList.toggle("hidden",!hasOtherRecent);
+  list.classList.toggle("hidden",!hasOtherRecent);
+
+  // 首頁新增入口明確二選一：
+  // 0 件作品 -> 大型「新增第一件作品」
+  // 已有作品 -> 輕量「新增新作品」
   if(hasProjects){
     empty.classList.add("hidden");
     empty.setAttribute("aria-hidden","true");
@@ -3360,7 +3369,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:24.8,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:24.9,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);

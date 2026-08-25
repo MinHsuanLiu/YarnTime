@@ -3508,3 +3508,28 @@ body.modal-open .modal-backdrop{
 #homeRecentEmpty:not(.hidden){
   display:flex !important;
 }
+
+
+/* =========================================================
+   v24.9 — Recent Making
+   ========================================================= */
+
+#homeRecentHead.hidden,
+#homeRecentList.hidden{
+  display:none !important;
+}
+
+/* 只有目前作品、沒有其他最近作品時，
+   「新增新作品」直接成為這區唯一內容，不留多餘標題空白。 */
+#homeRecentHead.hidden + #homeRecentList.hidden + #homeRecentEmpty.hidden + #homeQuickAddProjectBtn:not(.hidden){
+  margin-top:0;
+}
+
+#homeRecentSection:has(#homeRecentHead.hidden) .home-quick-add-project{
+  margin-top:2px;
+}
+
+/* 有最近作品時，新增按鈕仍保留在清單底部，視覺較輕。 */
+#homeRecentSection:has(#homeRecentHead:not(.hidden)) .home-quick-add-project{
+  margin-top:10px;
+}
