@@ -1483,3 +1483,105 @@ body.modal-open{
     grid-template-columns:1fr !important;
   }
 }
+
+
+/* =========================================================
+   v16 — Brand Logo Header
+   移除「今天做點什麼？」與首頁副標，改成正式 Logo Header
+   ========================================================= */
+
+.brand-header{
+  min-height:66px;
+  align-items:center !important;
+  margin-bottom:18px !important;
+}
+
+.yarntime-logo{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  color:var(--yt-ink);
+  user-select:none;
+}
+
+.yarntime-logo-mark{
+  width:38px;
+  height:38px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 38px;
+}
+
+.yarntime-logo-mark svg{
+  width:36px;
+  height:36px;
+  fill:none;
+  stroke:var(--yt-orange);
+  stroke-width:1.65;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+
+.yarntime-logo-word{
+  display:flex;
+  align-items:baseline;
+  letter-spacing:-.045em;
+  line-height:1;
+}
+
+.yarntime-logo-word strong{
+  font-size:26px;
+  font-weight:790;
+}
+
+.yarntime-logo-word b{
+  font-size:26px;
+  font-weight:500;
+}
+
+/* 舊首頁文案不再使用 */
+.identity-copy,
+.home-intro{
+  display:none !important;
+}
+
+/* 新增按鈕與 Logo 垂直對齊 */
+.brand-header .identity-add-btn{
+  margin-top:0 !important;
+  flex:0 0 auto;
+}
+
+/* NOW MAKING 往上收，首頁更像產品首頁而不是 landing page */
+.brand-header + #activeCard,
+.brand-header + .active-card{
+  margin-top:10px !important;
+}
+
+@media(max-width:430px){
+  .brand-header{
+    min-height:58px;
+    margin-bottom:14px !important;
+  }
+
+  .yarntime-logo-mark{
+    width:34px;
+    height:34px;
+    flex-basis:34px;
+  }
+
+  .yarntime-logo-mark svg{
+    width:32px;
+    height:32px;
+  }
+
+  .yarntime-logo-word strong,
+  .yarntime-logo-word b{
+    font-size:24px;
+  }
+
+  .brand-header .identity-add-btn{
+    width:42px !important;
+    height:42px !important;
+  }
+}

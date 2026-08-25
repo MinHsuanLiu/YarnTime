@@ -14,14 +14,17 @@
 </head>
 <body>
   <div class="app-shell">
-    <header class="topbar identity-topbar">
-      <div class="identity-copy">
-        <div class="brand-lockup" aria-label="YarnTime">
-          <span class="brand-yarn">Yarn</span><span class="brand-time">Time</span>
-          <i class="brand-thread" aria-hidden="true"></i>
-        </div>
-        <h1>今天做點什麼？</h1>
-        <p class="home-intro">把一針一線，慢慢記成作品的時間。</p>
+    <header class="topbar identity-topbar brand-header">
+      <div class="yarntime-logo" aria-label="YarnTime">
+        <span class="yarntime-logo-mark" aria-hidden="true">
+          <svg viewBox="0 0 48 48" role="img">
+            <path d="M10 24c0-8.4 5.3-14.8 13.1-14.8 8.3 0 14.1 6.4 14.1 15 0 9-6.3 14.8-14.8 14.8-8.8 0-15.3-5.9-15.3-13.2 0-5.9 4.2-10.4 9.8-10.4 5.1 0 8.7 3.7 8.7 8.5 0 4.2-2.8 7.1-6.7 7.1-3.4 0-5.9-2.3-5.9-5.2 0-2.8 2-4.8 4.6-4.8"/>
+            <path d="M22.8 39c6.3.1 11.9 2.1 16.8 5.7"/>
+          </svg>
+        </span>
+        <span class="yarntime-logo-word">
+          <strong>Yarn</strong><b>Time</b>
+        </span>
       </div>
       <button id="addProjectBtn" class="add-btn identity-add-btn" aria-label="新增作品">
         <span class="add-btn-plus">＋</span><span>新增作品</span>
@@ -632,7 +635,7 @@
     </div>
     <div class="settings-card">
       <h3>資料儲存狀態</h3>
-      <div class="storage-status-row"><span>版本</span><strong>YarnTime v15</strong></div>
+      <div class="storage-status-row"><span>版本</span><strong>YarnTime v16</strong></div>
       <div class="storage-status-row"><span>已使用空間</span><strong id="storageUsageText">計算中…</strong></div>
       <div class="storage-status-row"><span>持久儲存</span><strong id="storagePersistText">檢查中…</strong></div>
       <button id="requestPersistBtn" class="secondary-btn wide">提高資料保留機率</button>

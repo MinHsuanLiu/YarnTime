@@ -1,4 +1,4 @@
-# YarnTime PWA v15 — Larger Project Actions
+# YarnTime PWA v16 — Logo Header
 
 這是一個可安裝到 iPhone 主畫面的網頁 App（PWA）。
 
@@ -478,6 +478,33 @@ YarnTime 反推：
 - 上方 NOW MAKING 大卡片按鈕不變。
 
 這版只調整操作尺寸，不影響資料或功能。
+
+## GitHub 更新
+覆蓋：
+- index.html
+- app.js
+- styles.css
+- sw.js
+
+
+## v16 — Logo Header
+
+### 首頁品牌列重新設計
+- 移除「今天做點什麼？」
+- 移除「把一針一線，慢慢記成作品的時間。」
+- 首頁改成正式 Logo Header
+- 左側：YarnTime 專屬毛線球線條 mark + YarnTime wordmark
+- 右側：新增作品 +
+- Logo 使用與底部導覽 icon 同一套細線語言
+- 不加入額外裝飾圈線
+
+### 版面
+- 頁首高度縮短
+- NOW MAKING 區域往上提
+- 首頁資訊密度更自然
+- 手機版新增按鈕保持 42px 觸控尺寸
+
+此版不改功能與資料。
 
 ## GitHub 更新
 覆蓋：
