@@ -9,6 +9,13 @@ let pendingProjectPhotoPreviewUrl = null;
 let pendingLapPhotoFile = null;
 let pendingLapPhotoPreviewUrl = null;
 const photoUrlCache = new Map();
+let latestResumeBlob = null;
+let latestResumeProjectId = null;
+let currentProjectFilter = "active";
+let latestRecapBlob = null;
+let latestRecapProjectId = null;
+let latestRecapUrl = null;
+let editingProjectId = null;
 
 function defaultState(){ return {projects:[], activeProjectId:null}; }
 function loadState(){
@@ -17,6 +24,13 @@ function loadState(){
     const s = raw ? JSON.parse(raw) : defaultState();
     if(!s.projects) s.projects=[];
     if(!("activeProjectId" in s)) s.activeProjectId=null;
+    s.projects.forEach(p=>{
+      if(!Array.isArray(p.sessions)) p.sessions=[];
+      if(!p.projectInfo || typeof p.projectInfo!=="object") p.projectInfo={};
+      if(!Array.isArray(p.laps)) p.laps=[];
+      if(!p.lastWorkedAt) p.lastWorkedAt=p.createdAt||Date.now();
+      if(!("isCompleted" in p)) p.isCompleted=false;
+    });
     return s;
   }catch(e){ return defaultState(); }
 }
@@ -43,6 +57,75 @@ function fmtHuman(ms){
 }
 function escapeHTML(str=""){
   return str.replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+}
+
+
+function currentSessionMs(p){
+  return p?.isRunning && p.startedAt ? Math.max(0,now()-p.startedAt) : 0;
+}
+function ensureSessions(p){
+  if(!Array.isArray(p.sessions)) p.sessions=[];
+  return p.sessions;
+}
+function recordSession(p,startedAt,endedAt){
+  if(!p || !startedAt || !endedAt || endedAt<=startedAt) return;
+  const durationMs=endedAt-startedAt;
+  if(durationMs<1000) return;
+  ensureSessions(p).push({
+    id:uuid(),
+    startedAt,
+    endedAt,
+    durationMs
+  });
+}
+function formatSessionClock(ms){
+  return new Intl.DateTimeFormat("zh-TW",{hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date(ms));
+}
+function formatSessionDate(ms){
+  const d=new Date(ms);
+  const today=new Date();
+  const yesterday=new Date(); yesterday.setDate(today.getDate()-1);
+  const same=(a,b)=>a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();
+  if(same(d,today)) return "今天";
+  if(same(d,yesterday)) return "昨天";
+  return new Intl.DateTimeFormat("zh-TW",{month:"numeric",day:"numeric",weekday:"short"}).format(d);
+}
+function localDayStart(ms=Date.now()){
+  const d=new Date(ms);
+  d.setHours(0,0,0,0);
+  return d.getTime();
+}
+function localMonthStart(ms=Date.now()){
+  const d=new Date(ms);
+  d.setDate(1); d.setHours(0,0,0,0);
+  return d.getTime();
+}
+function nextMonthStart(ms=Date.now()){
+  const d=new Date(ms);
+  d.setMonth(d.getMonth()+1,1); d.setHours(0,0,0,0);
+  return d.getTime();
+}
+function overlapDuration(start,end,rangeStart,rangeEnd){
+  return Math.max(0,Math.min(end,rangeEnd)-Math.max(start,rangeStart));
+}
+function sessionDurationInRange(session,rangeStart,rangeEnd){
+  return overlapDuration(session.startedAt||0,session.endedAt||0,rangeStart,rangeEnd);
+}
+function allSessions(){
+  return state.projects.flatMap(p=>(p.sessions||[]).map(s=>({...s,projectId:p.id,projectName:p.name})));
+}
+function projectSessionDurationInRange(p,rangeStart,rangeEnd){
+  return (p.sessions||[]).reduce((sum,s)=>sum+sessionDurationInRange(s,rangeStart,rangeEnd),0);
+}
+function fmtCompact(ms){
+  const minutes=Math.round((ms||0)/60000);
+  if(minutes<60) return `${minutes}m`;
+  const h=Math.floor(minutes/60),m=minutes%60;
+  return m?`${h}h ${m}m`:`${h}h`;
+}
+function parseCost(value){
+  const n=Number(String(value||"").replace(/,/g,"").trim());
+  return Number.isFinite(n) && n>=0 ? n : null;
 }
 
 // ---------- 作品與進度照片 ----------
@@ -302,6 +385,429 @@ function projectDurationText(p){
   return `${Math.max(1,Math.ceil((end-start)/86400000))} 天`;
 }
 
+function formatCardDate(ms){
+  if(!ms) return "—";
+  return new Intl.DateTimeFormat("zh-TW",{year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(ms));
+}
+function safeFilename(name){
+  return (name||"YarnTime").replace(/[\\/:*?"<>|]/g,"_").trim()||"YarnTime";
+}
+function canvasRoundRect(ctx,x,y,w,h,r){
+  const rr=Math.min(r,w/2,h/2);
+  ctx.beginPath();
+  ctx.moveTo(x+rr,y);
+  ctx.arcTo(x+w,y,x+w,y+h,rr);
+  ctx.arcTo(x+w,y+h,x,y+h,rr);
+  ctx.arcTo(x,y+h,x,y,rr);
+  ctx.arcTo(x,y,x+w,y,rr);
+  ctx.closePath();
+}
+function drawCoverImage(ctx,img,x,y,w,h,r=28){
+  ctx.save();
+  canvasRoundRect(ctx,x,y,w,h,r);
+  ctx.clip();
+  const scale=Math.max(w/img.naturalWidth,h/img.naturalHeight);
+  const dw=img.naturalWidth*scale, dh=img.naturalHeight*scale;
+  ctx.drawImage(img,x+(w-dw)/2,y+(h-dh)/2,dw,dh);
+  ctx.restore();
+}
+function loadImageFromBlob(blob){
+  return new Promise((resolve,reject)=>{
+    const url=URL.createObjectURL(blob);
+    const img=new Image();
+    img.onload=()=>{ URL.revokeObjectURL(url); resolve(img); };
+    img.onerror=()=>{ URL.revokeObjectURL(url); reject(new Error("image")); };
+    img.src=url;
+  });
+}
+function wrapCanvasText(ctx,text,maxWidth,maxLines=2){
+  const chars=[...(text||"")];
+  const lines=[];
+  let line="";
+  for(const ch of chars){
+    const test=line+ch;
+    if(ctx.measureText(test).width>maxWidth && line){
+      lines.push(line);
+      line=ch;
+      if(lines.length===maxLines-1) break;
+    }else line=test;
+  }
+  if(lines.length<maxLines && line){
+    const consumed=lines.join("").length+line.length;
+    if(consumed<chars.length){
+      while(line && ctx.measureText(line+"…").width>maxWidth) line=line.slice(0,-1);
+      line+="…";
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+async function collectProgressPhotos(p){
+  const items=[];
+  for(const lap of (p.laps||[])){
+    const blob=await getLapPhotoBlob(p.id,lap.id);
+    if(blob) items.push({lap,blob});
+  }
+  if(items.length<=3) return items;
+  const idx=[0,Math.floor((items.length-1)/2),items.length-1];
+  return [...new Set(idx)].map(i=>items[i]);
+}
+async function buildResumeCard(projectId){
+  const p=getProject(projectId);
+  if(!p) throw new Error("project");
+  const canvas=document.getElementById("resumeCanvas");
+  const ctx=canvas.getContext("2d");
+  const W=1080,H=1350;
+  canvas.width=W; canvas.height=H;
+
+  // Palette
+  const bg="#F7F1E8", ink="#3E332B", muted="#8C7B6D", accent="#D8892B", card="#FFFDFC", line="#E9DDCF", soft="#F1E6D9";
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+
+  // Header
+  ctx.fillStyle=accent;
+  ctx.font='800 26px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+  ctx.fillText("YARNTIME · HANDMADE JOURNAL",72,78);
+
+  ctx.fillStyle=ink;
+  let titleSize=64;
+  ctx.font=`800 ${titleSize}px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif`;
+  let titleLines=wrapCanvasText(ctx,p.name,936,2);
+  while(titleLines.some(line=>ctx.measureText(line).width>936) && titleSize>48){
+    titleSize-=2; ctx.font=`800 ${titleSize}px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif`; titleLines=wrapCanvasText(ctx,p.name,936,2);
+  }
+  titleLines.forEach((line,i)=>ctx.fillText(line,72,156+i*(titleSize+10)));
+  const titleBottom=156+(titleLines.length-1)*(titleSize+10);
+
+  ctx.fillStyle=muted;
+  ctx.font='500 27px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+  ctx.fillText(`${p.type}   ${formatCardDate(p.createdAt)} → ${formatCardDate(p.completedAt||Date.now())}`,72,titleBottom+54);
+
+  // Hero image
+  const heroX=72, heroY=titleBottom+88, heroW=936, heroH=470;
+  ctx.fillStyle=soft; canvasRoundRect(ctx,heroX,heroY,heroW,heroH,34); ctx.fill();
+  let heroBlob=await getProjectPhotoBlob(p.id);
+  if(!heroBlob){
+    for(let i=(p.laps||[]).length-1;i>=0;i--){
+      heroBlob=await getLapPhotoBlob(p.id,p.laps[i].id);
+      if(heroBlob) break;
+    }
+  }
+  if(heroBlob){
+    try{ drawCoverImage(ctx,await loadImageFromBlob(heroBlob),heroX,heroY,heroW,heroH,34); }
+    catch(e){}
+  }else{
+    ctx.fillStyle=accent; ctx.font='700 76px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif'; ctx.textAlign="center";
+    ctx.fillText("🧶",W/2,heroY+205);
+    ctx.fillStyle=muted; ctx.font='600 28px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+    ctx.fillText("我的手作作品",W/2,heroY+270); ctx.textAlign="left";
+  }
+
+  // Metric cards
+  const metricsY=heroY+506, gap=18, metricW=(936-gap*2)/3, metricH=142;
+  const metrics=[
+    ["總工時",fmtHuman(elapsedMs(p))],
+    ["製作期間",projectDurationText(p)],
+    ["進度紀錄",`${p.laps?.length||0} 次`]
+  ];
+  metrics.forEach(([label,value],i)=>{
+    const x=72+i*(metricW+gap);
+    ctx.fillStyle=card; canvasRoundRect(ctx,x,metricsY,metricW,metricH,24); ctx.fill();
+    ctx.strokeStyle=line; ctx.lineWidth=2; canvasRoundRect(ctx,x,metricsY,metricW,metricH,24); ctx.stroke();
+    ctx.fillStyle=muted; ctx.font='600 23px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif'; ctx.fillText(label,x+24,metricsY+40);
+    ctx.fillStyle=i===0?accent:ink; ctx.font='800 34px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+    const valueText=value.length>12?value.slice(0,12):value;
+    ctx.fillText(valueText,x+24,metricsY+94);
+  });
+
+  // Progress photo strip
+  const stripTitleY=metricsY+194;
+  ctx.fillStyle=ink; ctx.font='800 31px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif'; ctx.fillText("從一針一線到完成",72,stripTitleY);
+  ctx.fillStyle=muted; ctx.font='500 22px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif'; ctx.fillText("每一次紀錄，都是作品長大的一點點。",72,stripTitleY+38);
+
+  const progress=await collectProgressPhotos(p);
+  const tileY=stripTitleY+68, tileGap=16, tileW=(936-tileGap*2)/3, tileH=174;
+  for(let i=0;i<3;i++){
+    const x=72+i*(tileW+tileGap);
+    ctx.fillStyle=soft; canvasRoundRect(ctx,x,tileY,tileW,tileH,20); ctx.fill();
+    const item=progress[i];
+    if(item){
+      try{ drawCoverImage(ctx,await loadImageFromBlob(item.blob),x,tileY,tileW,tileH,20); }catch(e){}
+      ctx.fillStyle="rgba(62,51,43,.72)"; canvasRoundRect(ctx,x+12,tileY+12,48,34,17); ctx.fill();
+      ctx.fillStyle="#FFFFFF"; ctx.font='800 18px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif'; ctx.textAlign="center";
+      ctx.fillText(String((p.laps||[]).findIndex(l=>l.id===item.lap.id)+1).padStart(2,"0"),x+36,tileY+35); ctx.textAlign="left";
+    }else{
+      ctx.fillStyle="#D7C7B8"; ctx.font='700 28px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif'; ctx.textAlign="center";
+      ctx.fillText("·",x+tileW/2,tileY+96); ctx.textAlign="left";
+    }
+  }
+
+  // Footer
+  ctx.fillStyle=muted; ctx.font='600 21px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+  ctx.fillText("Made slowly, stitch by stitch.",72,1310);
+  ctx.textAlign="right"; ctx.fillStyle=accent; ctx.font='800 22px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+  ctx.fillText("YarnTime",1008,1310); ctx.textAlign="left";
+
+  latestResumeBlob=await new Promise(resolve=>canvas.toBlob(resolve,"image/png",1));
+  latestResumeProjectId=projectId;
+  if(!latestResumeBlob) throw new Error("canvas");
+  return latestResumeBlob;
+}
+function downloadResumeBlob(blob,p){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download=`${safeFilename(p.name)}_YarnTime.png`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+
+
+// ---------- 完成回顧影片 ----------
+function chooseRecapMimeType(){
+  if(typeof MediaRecorder==="undefined") return "";
+  const candidates=[
+    "video/mp4;codecs=avc1.42E01E",
+    "video/mp4;codecs=h264",
+    "video/mp4",
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8",
+    "video/webm"
+  ];
+  return candidates.find(t=>MediaRecorder.isTypeSupported?.(t))||"";
+}
+function recapExtension(type){
+  return (type||"").includes("mp4")?"mp4":"webm";
+}
+function sleep(ms){ return new Promise(resolve=>setTimeout(resolve,ms)); }
+function lerp(a,b,t){ return a+(b-a)*t; }
+function easeInOut(t){ return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2; }
+
+function drawRecapBackground(ctx,W,H){
+  ctx.fillStyle="#F7F1E8";
+  ctx.fillRect(0,0,W,H);
+}
+function drawRecapText(ctx,text,x,y,maxWidth,font,fill="#3E332B",align="left"){
+  ctx.font=font;
+  ctx.fillStyle=fill;
+  ctx.textAlign=align;
+  const lines=wrapCanvasText(ctx,text,maxWidth,2);
+  lines.forEach((line,i)=>ctx.fillText(line,x,y+i*56));
+  ctx.textAlign="left";
+}
+function drawRecapPhoto(ctx,img,x,y,w,h,r=34,zoom=1){
+  ctx.save();
+  canvasRoundRect(ctx,x,y,w,h,r);
+  ctx.clip();
+  const scale=Math.max(w/img.naturalWidth,h/img.naturalHeight)*zoom;
+  const dw=img.naturalWidth*scale,dh=img.naturalHeight*scale;
+  ctx.drawImage(img,x+(w-dw)/2,y+(h-dh)/2,dw,dh);
+  ctx.restore();
+}
+async function collectRecapSlides(p){
+  const slides=[];
+  let cover=await getProjectPhotoBlob(p.id);
+  if(cover){
+    slides.push({
+      kind:"photo",
+      blob:cover,
+      title:p.name,
+      subtitle:`開始 · ${formatCardDate(p.createdAt)}`,
+      time:"從第一針開始"
+    });
+  }
+
+  const withPhotos=[];
+  for(let i=0;i<(p.laps||[]).length;i++){
+    const lap=p.laps[i];
+    const blob=await getLapPhotoBlob(p.id,lap.id);
+    if(blob) withPhotos.push({lap,blob,index:i+1});
+  }
+
+  // 最多保留 10 個進度照片，避免手機生成太久。
+  let selected=withPhotos;
+  if(withPhotos.length>10){
+    selected=[];
+    for(let i=0;i<10;i++){
+      const idx=Math.round(i*(withPhotos.length-1)/9);
+      if(!selected.some(x=>x.index===withPhotos[idx].index)) selected.push(withPhotos[idx]);
+    }
+  }
+  for(const item of selected){
+    slides.push({
+      kind:"photo",
+      blob:item.blob,
+      title:item.lap.name||`進度 ${item.index}`,
+      subtitle:`第 ${item.index} 次紀錄`,
+      time:`累積 ${fmt(item.lap.totalMs||0)}`
+    });
+  }
+
+  // 沒有任何照片也仍可產生文字回顧。
+  if(!slides.length){
+    for(let i=0;i<Math.min((p.laps||[]).length,8);i++){
+      const lap=p.laps[i];
+      slides.push({
+        kind:"text",
+        title:lap.name||`進度 ${i+1}`,
+        subtitle:`第 ${i+1} 次紀錄`,
+        time:`累積 ${fmt(lap.totalMs||0)}`
+      });
+    }
+  }
+
+  slides.push({
+    kind:"summary",
+    title:p.name,
+    subtitle:"完成 ✨",
+    time:`總工時 ${fmtHuman(elapsedMs(p))}`,
+    duration:projectDurationText(p),
+    count:p.laps?.length||0,
+    blob:cover||withPhotos.at(-1)?.blob||null
+  });
+  return slides;
+}
+async function loadRecapSlideImages(slides){
+  const result=[];
+  for(const slide of slides){
+    let image=null;
+    if(slide.blob){
+      try{ image=await loadImageFromBlob(slide.blob); }catch(e){}
+    }
+    result.push({...slide,image});
+  }
+  return result;
+}
+function drawRecapFrame(ctx,W,H,slide,progress){
+  drawRecapBackground(ctx,W,H);
+  const ink="#3E332B",muted="#8C7B6D",accent="#D8892B",soft="#F1E6D9",card="#FFFDFC";
+
+  ctx.fillStyle=accent;
+  ctx.font='800 20px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+  ctx.fillText("YARNTIME · HANDMADE JOURNAL",44,62);
+
+  if(slide.kind==="summary"){
+    if(slide.image){
+      const zoom=1+progress*.025;
+      drawRecapPhoto(ctx,slide.image,44,108,632,660,34,zoom);
+      const grd=ctx.createLinearGradient(0,560,0,800);
+      grd.addColorStop(0,"rgba(62,51,43,0)");
+      grd.addColorStop(1,"rgba(62,51,43,.52)");
+      ctx.fillStyle=grd;
+      canvasRoundRect(ctx,44,108,632,660,34);
+      ctx.fill();
+    }else{
+      ctx.fillStyle=soft; canvasRoundRect(ctx,44,108,632,660,34); ctx.fill();
+      ctx.font='700 84px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+      ctx.textAlign="center"; ctx.fillStyle=accent; ctx.fillText("🧶",360,420); ctx.textAlign="left";
+    }
+
+    ctx.fillStyle=card; canvasRoundRect(ctx,44,804,632,370,30); ctx.fill();
+    drawRecapText(ctx,slide.title,76,880,568,'800 48px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif',ink);
+    ctx.fillStyle=accent; ctx.font='800 26px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+    ctx.fillText("完成 ✨",76,980);
+    ctx.fillStyle=ink; ctx.font='800 34px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+    ctx.fillText(slide.time,76,1032);
+    ctx.fillStyle=muted; ctx.font='600 23px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+    ctx.fillText(`${slide.duration} · ${slide.count} 次製作紀錄`,76,1082);
+    ctx.fillStyle=muted; ctx.font='600 18px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+    ctx.fillText("Made slowly, stitch by stitch.",76,1138);
+    return;
+  }
+
+  const photoY=116,photoH=770;
+  if(slide.image){
+    const zoom=1+easeInOut(progress)*.035;
+    drawRecapPhoto(ctx,slide.image,44,photoY,632,photoH,34,zoom);
+  }else{
+    ctx.fillStyle=soft; canvasRoundRect(ctx,44,photoY,632,photoH,34); ctx.fill();
+    ctx.font='700 78px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+    ctx.textAlign="center"; ctx.fillStyle=accent; ctx.fillText("🧶",360,480); ctx.textAlign="left";
+  }
+
+  ctx.fillStyle="rgba(255,253,252,.96)";
+  canvasRoundRect(ctx,44,924,632,268,30); ctx.fill();
+  drawRecapText(ctx,slide.title,76,998,568,'800 42px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif',ink);
+  ctx.fillStyle=muted;
+  ctx.font='600 22px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+  ctx.fillText(slide.subtitle||"",76,1090);
+  ctx.fillStyle=accent;
+  ctx.font='800 28px -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif';
+  ctx.fillText(slide.time||"",76,1142);
+}
+async function buildRecapVideo(projectId,onProgress=()=>{}){
+  const p=getProject(projectId);
+  if(!p || !p.isCompleted) throw new Error("project");
+  const canvas=document.getElementById("recapCanvas");
+  if(!canvas.captureStream || typeof MediaRecorder==="undefined"){
+    throw new Error("unsupported");
+  }
+  const mimeType=chooseRecapMimeType();
+  if(!mimeType) throw new Error("unsupported");
+
+  const rawSlides=await collectRecapSlides(p);
+  const slides=await loadRecapSlideImages(rawSlides);
+  const W=720,H=1280;
+  canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext("2d");
+
+  const stream=canvas.captureStream(30);
+  const options={mimeType,videoBitsPerSecond:4_500_000};
+  const recorder=new MediaRecorder(stream,options);
+  const chunks=[];
+  recorder.ondataavailable=e=>{ if(e.data?.size) chunks.push(e.data); };
+
+  const stopped=new Promise((resolve,reject)=>{
+    recorder.onstop=()=>resolve();
+    recorder.onerror=e=>reject(e.error||new Error("record"));
+  });
+
+  recorder.start(250);
+
+  const durations=slides.map((s,i)=>s.kind==="summary"?2400:1500);
+  const totalDuration=durations.reduce((a,b)=>a+b,0);
+  const started=performance.now();
+
+  for(let i=0;i<slides.length;i++){
+    const duration=durations[i];
+    const slideStart=performance.now();
+    while(true){
+      const t=Math.min(1,(performance.now()-slideStart)/duration);
+      drawRecapFrame(ctx,W,H,slides[i],t);
+      const elapsed=performance.now()-started;
+      onProgress(Math.min(0.98,elapsed/totalDuration));
+      if(t>=1) break;
+      await new Promise(requestAnimationFrame);
+    }
+  }
+
+  // 多畫幾幀，避免最後一格被截斷。
+  drawRecapFrame(ctx,W,H,slides[slides.length-1],1);
+  await sleep(160);
+  recorder.stop();
+  await stopped;
+  stream.getTracks().forEach(t=>t.stop());
+
+  const actualType=recorder.mimeType||mimeType;
+  const blob=new Blob(chunks,{type:actualType});
+  if(!blob.size) throw new Error("empty");
+
+  latestRecapBlob=blob;
+  latestRecapProjectId=projectId;
+  if(latestRecapUrl) URL.revokeObjectURL(latestRecapUrl);
+  latestRecapUrl=URL.createObjectURL(blob);
+  return {blob,url:latestRecapUrl,type:actualType};
+}
+function downloadRecapBlob(blob,p){
+  const ext=recapExtension(blob.type);
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download=`${safeFilename(p.name)}_YarnTime_Recap.${ext}`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1800);
+}
+
 // 目前這一段 = 現在總工時 - 上一次分段的累積工時
 function currentSegmentMs(p){
   const boundary=p.laps?.length
@@ -312,9 +818,14 @@ function currentSegmentMs(p){
 
 function pauseProject(p){
   if(!p || !p.isRunning) return;
-  p.accumulatedMs=(p.accumulatedMs||0)+(now()-p.startedAt);
+  const endedAt=now();
+  const startedAt=p.startedAt;
+  const duration=Math.max(0,endedAt-startedAt);
+  p.accumulatedMs=(p.accumulatedMs||0)+duration;
+  recordSession(p,startedAt,endedAt);
   p.startedAt=null;
   p.isRunning=false;
+  p.lastWorkedAt=endedAt;
   if(state.activeProjectId===p.id) state.activeProjectId=null;
 }
 function startProject(id){
@@ -328,7 +839,10 @@ function startProject(id){
   }
   const p=getProject(id); if(!p) return;
   if(!p.isRunning){
-    p.isRunning=true; p.startedAt=now(); state.activeProjectId=id;
+    p.isRunning=true;
+    p.startedAt=now();
+    p.lastWorkedAt=now();
+    state.activeProjectId=id;
   }
   saveState(); renderAll();
 }
@@ -337,38 +851,97 @@ function toggleProject(id){
   if(p.isRunning) pauseProject(p); else startProject(id);
   saveState(); renderAll();
 }
-function createProject(name,type,note){
-  const p={id:uuid(),name,type,note,createdAt:now(),completedAt:null,isCompleted:false,accumulatedMs:0,isRunning:false,startedAt:null,laps:[],lapBaselineMs:0};
+function createProject(name,type,note,projectInfo={}){
+  const p={
+    id:uuid(),name,type,note,
+    projectInfo,
+    createdAt:now(),lastWorkedAt:now(),completedAt:null,isCompleted:false,
+    accumulatedMs:0,isRunning:false,startedAt:null,
+    sessions:[],
+    laps:[],lapBaselineMs:0
+  };
   state.projects.unshift(p); saveState(); return p;
 }
 
 function renderProjects(){
   const list=document.getElementById("projectList");
   const empty=document.getElementById("emptyState");
-  empty.classList.toggle("hidden", state.projects.length>0);
-  list.innerHTML=state.projects.map(p=>`
-    <article class="project-card ${p.isRunning?"running":""}" data-id="${p.id}">
-      <div class="project-row">
-        <div class="project-icon">
-          <img class="project-thumb hidden" data-photo-project="${p.id}" alt="${escapeHTML(p.name)}">
-          <span class="project-fallback">${p.type==="棒針"?"🪡":"🧶"}</span>
+  const activeProjects=state.projects
+    .filter(p=>!p.isCompleted)
+    .sort((a,b)=>{
+      if(!!a.isRunning!==!!b.isRunning) return b.isRunning-a.isRunning;
+      return (b.lastWorkedAt||b.createdAt||0)-(a.lastWorkedAt||a.createdAt||0);
+    });
+  const completedProjects=state.projects
+    .filter(p=>p.isCompleted)
+    .sort((a,b)=>(b.completedAt||0)-(a.completedAt||0));
+
+  document.getElementById("activeProjectCount").textContent=activeProjects.length;
+  document.getElementById("completedProjectCount").textContent=completedProjects.length;
+
+  const projects=currentProjectFilter==="completed"?completedProjects:activeProjects;
+  empty.classList.toggle("hidden",projects.length>0);
+
+  const emptyTitle=document.getElementById("emptyStateTitle");
+  const emptyText=document.getElementById("emptyStateText");
+  const emptyAdd=document.getElementById("emptyAddBtn");
+  if(currentProjectFilter==="completed"){
+    emptyTitle.textContent="還沒有完成作品";
+    emptyText.textContent="完成的作品會收在這裡，不會和製作中的作品混在一起。";
+    emptyAdd.classList.add("hidden");
+  }else{
+    emptyTitle.textContent="目前沒有製作中的作品";
+    emptyText.textContent="新增一件作品，或從「已完成」恢復製作。";
+    emptyAdd.classList.remove("hidden");
+  }
+
+  list.innerHTML=projects.map(p=>{
+    if(p.isCompleted){
+      return `
+        <article class="project-card completed-project-card" data-id="${p.id}">
+          <div class="project-row">
+            <div class="project-icon">
+              <img class="project-thumb hidden" data-photo-project="${p.id}" alt="${escapeHTML(p.name)}">
+              <span class="project-fallback">${p.type==="棒針"?"🪡":"🧶"}</span>
+            </div>
+            <div class="project-main">
+              <div class="project-title-row">
+                <div class="project-title">${escapeHTML(p.name)}</div>
+                <span class="mini-completed-badge">✓ 已完成</span>
+              </div>
+              <div class="project-meta">${escapeHTML(p.type)} · ${formatCardDate(p.completedAt)}</div>
+              <div class="project-journal-meta">${p.sessions?.length||0} 次製作 · ${projectDurationText(p)}</div>
+            </div>
+            <div class="project-time">${fmt(elapsedMs(p))}</div>
+          </div>
+          <div class="project-actions completed-actions">
+            <button class="detail-mini completed-detail-btn" data-action="detail" data-id="${p.id}">查看結論</button>
+          </div>
+        </article>`;
+    }
+
+    return `
+      <article class="project-card ${p.isRunning?"running":""}" data-id="${p.id}">
+        <div class="project-row">
+          <div class="project-icon">
+            <img class="project-thumb hidden" data-photo-project="${p.id}" alt="${escapeHTML(p.name)}">
+            <span class="project-fallback">${p.type==="棒針"?"🪡":"🧶"}</span>
+          </div>
+          <div class="project-main">
+            <div class="project-title">${escapeHTML(p.name)}</div>
+            <div class="project-meta">${escapeHTML(p.type)}${p.isRunning?" · 計時中":" · 製作中"}</div>
+            <div class="project-journal-meta">${p.sessions?.length||0} 次製作${p.lastWorkedAt?` · 最近 ${formatCardDate(p.lastWorkedAt)}`:""}</div>
+          </div>
+          <div class="project-time" data-time-id="${p.id}">${fmt(elapsedMs(p))}</div>
         </div>
-        <div class="project-main">
-          <div class="project-title">${escapeHTML(p.name)}</div>
-          <div class="project-meta">${escapeHTML(p.type)}${p.isRunning?" · 計時中":""}${p.isCompleted?" · 已完成":""}</div>
-          <div class="project-journal-meta">${p.laps?.length||0} 次紀錄${p.isCompleted?` · ${projectDurationText(p)}`:""}</div>
+        <div class="project-actions">
+          <button class="start-mini" data-action="toggle" data-id="${p.id}">${p.isRunning?"暫停":"開始"}</button>
+          <button class="detail-mini" data-action="detail" data-id="${p.id}">查看</button>
         </div>
-        <div class="project-time" data-time-id="${p.id}">${fmt(elapsedMs(p))}</div>
-      </div>
-      <div class="project-actions">
-        <button class="start-mini" data-action="toggle" data-id="${p.id}">${p.isRunning?"暫停":"開始"}</button>
-        <button class="detail-mini" data-action="detail" data-id="${p.id}">查看</button>
-      </div>
-    </article>
-  `).join("");
+      </article>`;
+  }).join("");
   applyProjectPhotos();
 }
-
 function renderActive(){
   const card=document.getElementById("activeCard");
   const p=state.activeProjectId?getProject(state.activeProjectId):null;
@@ -405,8 +978,8 @@ function renderDetail(){
   document.getElementById("detailTimer").textContent=fmt(elapsedMs(p));
   document.getElementById("detailStartPauseBtn").textContent=p.isRunning?"暫停":"開始";
   document.getElementById("detailTotal").textContent=fmtHuman(elapsedMs(p));
-  document.getElementById("detailLapCount").textContent=p.laps?.length||0;
-  document.getElementById("detailCurrentSegment").textContent=fmt(currentSegmentMs(p));
+  document.getElementById("detailSessionCount").textContent=p.sessions?.length||0;
+  document.getElementById("detailCurrentSegment").textContent=fmt(currentSessionMs(p));
   document.getElementById("detailNote").textContent=p.note?.trim()||"—";
   renderDetailPhoto();
 
@@ -415,6 +988,62 @@ function renderDetail(){
     ? `總工時 ${fmtHuman(elapsedMs(p))} · 製作期間 ${projectDurationText(p)}`
     : "完成後會留下總工時與製作期間。";
   document.getElementById("toggleCompleteBtn").textContent=p.isCompleted?"改回製作中":"標記完成";
+  document.getElementById("resumeCardBtn").classList.toggle("hidden",!p.isCompleted);
+  document.getElementById("recapVideoBtn").classList.toggle("hidden",!p.isCompleted);
+
+  const detailActions=document.querySelector("#detailModal .detail-actions");
+  const liveStats=document.getElementById("detailLiveStats");
+  const conclusion=document.getElementById("completedConclusion");
+  document.getElementById("detailTimerLabel").textContent=p.isCompleted?"完成總工時":"總工時";
+  detailActions.classList.toggle("hidden",!!p.isCompleted);
+  liveStats.classList.toggle("hidden",!!p.isCompleted);
+  conclusion.classList.toggle("hidden",!p.isCompleted);
+
+  if(p.isCompleted){
+    const sessionCount=p.sessions?.length||0;
+    const sessionTotal=(p.sessions||[]).reduce((sum,s)=>sum+(s.durationMs||0),0);
+    document.getElementById("conclusionTotal").textContent=fmtHuman(elapsedMs(p));
+    document.getElementById("conclusionDuration").textContent=projectDurationText(p);
+    document.getElementById("conclusionSessions").textContent=`${sessionCount} 次`;
+    document.getElementById("conclusionAverage").textContent=sessionCount?fmtHuman(sessionTotal/sessionCount):"—";
+    document.getElementById("conclusionStartDate").textContent=formatCardDate(p.createdAt);
+    document.getElementById("conclusionEndDate").textContent=formatCardDate(p.completedAt);
+  }
+
+  const sessions=(p.sessions||[]).slice().reverse();
+  document.getElementById("sessionCountLabel").textContent=`${sessions.length} 次`;
+  const sessionList=document.getElementById("sessionList");
+  const legacyNote=document.getElementById("sessionLegacyNote");
+  const sessionRecordedMs=(p.sessions||[]).reduce((sum,s)=>sum+(s.durationMs||0),0);
+  const legacyMs=Math.max(0,(p.accumulatedMs||0)-sessionRecordedMs);
+  if(legacyMs>=60000){
+    legacyNote.textContent=`先前版本已有 ${fmtHuman(legacyMs)} 工時；v8 起才開始逐次記錄製作時間。`;
+    legacyNote.classList.remove("hidden");
+  }else{
+    legacyNote.classList.add("hidden");
+  }
+  sessionList.innerHTML=sessions.length?sessions.slice(0,30).map((s,index)=>`
+    <div class="session-row">
+      <div class="session-date">
+        <strong>${formatSessionDate(s.startedAt)}</strong>
+        <small>${formatSessionClock(s.startedAt)} – ${formatSessionClock(s.endedAt)}</small>
+      </div>
+      <div class="session-duration">${fmtHuman(s.durationMs)}</div>
+    </div>
+  `).join(""):`<div class="session-empty">第一次按「開始 → 暫停」後，這裡就會自動出現紀錄。</div>`;
+
+  const info=p.projectInfo||{};
+  const infoItems=[
+    ["針號",info.needle],
+    ["毛線",info.yarn],
+    ["使用線量",info.amount],
+    ["材料成本",info.cost!==""&&info.cost!=null?`NT$ ${Number(info.cost).toLocaleString("zh-TW")}`:""],
+    ["用途",info.purpose],
+    ["來源",info.source]
+  ].filter(([,v])=>String(v||"").trim());
+  document.getElementById("projectInfoGrid").innerHTML=infoItems.length
+    ? infoItems.map(([label,value])=>`<div class="project-info-item"><span>${escapeHTML(label)}</span><strong>${escapeHTML(String(value))}</strong></div>`).join("")
+    : `<div class="project-info-empty">還沒有填作品資料。可以補上針號、毛線、用量或材料成本。</div>`;
 
   const lapList=document.getElementById("lapList");
   let previousTotal=p.lapBaselineMs||0;
@@ -439,8 +1068,7 @@ function renderDetail(){
             <strong>${escapeHTML(l.name||`進度 ${l.index}`)}</strong>
             <small>${new Date(l.at).toLocaleString("zh-TW")}</small>
           </div>
-          <div class="timeline-time">
-            <span>本段 ${fmt(l.segmentMs)}</span>
+          <div class="timeline-time milestone-time">
             <b>累積 ${fmt(l.totalMs)}</b>
           </div>
         </div>
@@ -450,55 +1078,144 @@ function renderDetail(){
         </div>
       </div>
     </article>
-  `).join(""):`<div class="timeline-empty"><span>🧶</span><p>還沒有製作紀錄。<br>按「分段」留下第一個進度節點吧。</p></div>`;
+  `).join(""):`<div class="timeline-empty"><span>📍</span><p>還沒有里程碑。<br>做到值得紀念的地方再記就好。</p></div>`;
 
   applyLapPhotos(p.id);
 }
 
 function renderStats(){
   const total=state.projects.reduce((a,p)=>a+elapsedMs(p),0);
-  const completed=state.projects.filter(p=>p.isCompleted);
   const active=state.projects.filter(p=>!p.isCompleted);
-  const totalCheckpoints=state.projects.reduce((a,p)=>a+(p.laps?.length||0),0);
-  const sorted=[...state.projects].sort((a,b)=>elapsedMs(b)-elapsedMs(a));
-  const averageCompleted=completed.length
-    ? completed.reduce((a,p)=>a+elapsedMs(p),0)/completed.length
+  const nowMs=now();
+  const monthStart=localMonthStart(nowMs);
+  const monthEnd=nextMonthStart(nowMs);
+  const sessions=allSessions();
+
+  const monthMs=sessions.reduce((sum,s)=>sum+sessionDurationInRange(s,monthStart,monthEnd),0);
+  const monthCompleted=state.projects.filter(p=>p.completedAt>=monthStart && p.completedAt<monthEnd).length;
+  const monthSessions=sessions.filter(s=>s.endedAt>=monthStart && s.endedAt<monthEnd);
+  const avgSession=monthSessions.length
+    ? monthSessions.reduce((sum,s)=>sum+(s.durationMs||0),0)/monthSessions.length
     : 0;
+  const craftDays=new Set(monthSessions.map(s=>{
+    const d=new Date(s.startedAt);
+    return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+  })).size;
+
+  const dayData=[];
+  for(let i=6;i>=0;i--){
+    const d=new Date();
+    d.setDate(d.getDate()-i);
+    d.setHours(0,0,0,0);
+    const start=d.getTime();
+    const end=start+86400000;
+    const ms=sessions.reduce((sum,s)=>sum+sessionDurationInRange(s,start,end),0);
+    dayData.push({
+      label:new Intl.DateTimeFormat("zh-TW",{weekday:"short"}).format(d),
+      ms,
+      isToday:i===0
+    });
+  }
+  const maxDay=Math.max(...dayData.map(d=>d.ms),1);
+
+  const projectMonth=state.projects.map(p=>({
+    p,
+    ms:projectSessionDurationInRange(p,monthStart,monthEnd)
+  })).sort((a,b)=>b.ms-a.ms);
+  const topMonth=projectMonth.find(x=>x.ms>0);
+
+  const sorted=[...state.projects].sort((a,b)=>elapsedMs(b)-elapsedMs(a));
 
   const content=document.getElementById("statsContent");
   content.innerHTML=`
     <section class="stats-summary">
       <div class="eyebrow">YarnTime Journal</div>
       <div class="stats-total">${fmtHuman(total)}</div>
-      <p>你目前留下的所有手作工時</p>
+      <p>你累積留下的所有手作工時</p>
     </section>
-    <section class="journal-metrics">
-      <div class="metric-card"><span>作品</span><strong>${state.projects.length}</strong><small>${active.length} 件製作中</small></div>
-      <div class="metric-card"><span>已完成</span><strong>${completed.length}</strong><small>${completed.length?`平均 ${fmtHuman(averageCompleted)}`:"還沒有完成作品"}</small></div>
-      <div class="metric-card"><span>進度節點</span><strong>${totalCheckpoints}</strong><small>你的製作足跡</small></div>
+
+    <section class="stats-metric-grid">
+      <div class="metric-card"><span>本月工時</span><strong>${fmtHuman(monthMs)}</strong><small>${craftDays} 天有做手作</small></div>
+      <div class="metric-card"><span>製作中</span><strong>${active.length}</strong><small>件作品</small></div>
+      <div class="metric-card"><span>本月完成</span><strong>${monthCompleted}</strong><small>件作品</small></div>
+      <div class="metric-card"><span>平均每次</span><strong>${monthSessions.length?fmtHuman(avgSession):"—"}</strong><small>${monthSessions.length} 次製作</small></div>
     </section>
+
+    <section class="weekly-card">
+      <div class="section-head">
+        <div><h2>最近 7 天</h2><p>每天花多少時間做手作</p></div>
+        <strong>${fmtHuman(dayData.reduce((s,d)=>s+d.ms,0))}</strong>
+      </div>
+      <div class="week-bars">
+        ${dayData.map(d=>`
+          <div class="week-day ${d.isToday?"today":""}">
+            <div class="week-value">${d.ms?fmtCompact(d.ms):""}</div>
+            <div class="week-bar-track"><div class="week-bar-fill" style="height:${Math.max(d.ms?8:0,Math.round((d.ms/maxDay)*100))}%"></div></div>
+            <span>${d.label}</span>
+          </div>
+        `).join("")}
+      </div>
+    </section>
+
+    <section class="insight-card">
+      <div>
+        <span>本月最投入</span>
+        <strong>${topMonth?escapeHTML(topMonth.p.name):"還沒有資料"}</strong>
+      </div>
+      <b>${topMonth?fmtHuman(topMonth.ms):"—"}</b>
+    </section>
+
     <section class="stats-list">
-      <div class="section-head"><div><h2>工時排行</h2><p>哪件作品最花時間？</p></div></div>
+      <div class="section-head"><div><h2>作品總工時</h2><p>目前累積最花時間的作品</p></div></div>
       ${sorted.length?sorted.map(p=>`
         <div class="stat-row">
-          <div><strong>${escapeHTML(p.name)}</strong><div class="project-meta">${escapeHTML(p.type)} · ${p.laps?.length||0} 次紀錄${p.isCompleted?" · 已完成":""}</div></div>
+          <div><strong>${escapeHTML(p.name)}</strong><div class="project-meta">${escapeHTML(p.type)} · ${p.sessions?.length||0} 次製作${p.isCompleted?" · 已完成":""}</div></div>
           <strong>${fmtHuman(elapsedMs(p))}</strong>
         </div>
       `).join(""):`<p>還沒有統計資料。</p>`}
+      ${total>0 && sessions.length===0?`<p class="stats-footnote">逐次製作統計會從 v8 開始累積；之前的總工時仍完整保留。</p>`:""}
     </section>`;
 }
-
 function renderAll(){ renderProjects(); renderActive(); renderDetail(); renderStats(); }
 
 function openModal(id){ document.getElementById(id).classList.remove("hidden"); }
 function closeModal(id){ document.getElementById(id).classList.add("hidden"); }
 
-document.getElementById("addProjectBtn").onclick=()=>{
-  document.getElementById("projectNameInput").value="";
-  document.getElementById("projectTypeInput").value="鉤針";
-  document.getElementById("projectNoteInput").value="";
+document.querySelectorAll("[data-project-filter]").forEach(btn=>btn.onclick=()=>{
+  currentProjectFilter=btn.dataset.projectFilter;
+  document.querySelectorAll("[data-project-filter]").forEach(x=>x.classList.toggle("active",x===btn));
+  renderProjects();
+});
+
+function fillProjectModal(p=null){
+  editingProjectId=p?.id||null;
+  document.getElementById("projectModalTitle").textContent=p?"編輯作品資訊":"新增作品";
+  document.getElementById("projectNameInput").value=p?.name||"";
+  document.getElementById("projectTypeInput").value=p?.type||"鉤針";
+  document.getElementById("projectNoteInput").value=p?.note||"";
+  const info=p?.projectInfo||{};
+  document.getElementById("projectNeedleInput").value=info.needle||"";
+  document.getElementById("projectYarnInput").value=info.yarn||"";
+  document.getElementById("projectAmountInput").value=info.amount||"";
+  document.getElementById("projectCostInput").value=info.cost??"";
+  document.getElementById("projectPurposeInput").value=info.purpose||"";
+  document.getElementById("projectSourceInput").value=info.source||"";
   document.getElementById("projectPhotoInput").value="";
   setPendingProjectPhoto(null);
+  document.getElementById("saveProjectBtn").textContent=p?"儲存修改":"儲存";
+}
+function readProjectInfoInputs(){
+  return {
+    needle:document.getElementById("projectNeedleInput").value.trim(),
+    yarn:document.getElementById("projectYarnInput").value.trim(),
+    amount:document.getElementById("projectAmountInput").value.trim(),
+    cost:parseCost(document.getElementById("projectCostInput").value),
+    purpose:document.getElementById("projectPurposeInput").value,
+    source:document.getElementById("projectSourceInput").value.trim()
+  };
+}
+document.getElementById("addProjectBtn").onclick=()=>{
+  fillProjectModal(null);
   openModal("projectModal");
 };
 document.getElementById("emptyAddBtn").onclick=()=>document.getElementById("addProjectBtn").click();
@@ -506,7 +1223,22 @@ document.getElementById("emptyAddBtn").onclick=()=>document.getElementById("addP
 document.getElementById("saveProjectBtn").onclick=async()=>{
   const name=document.getElementById("projectNameInput").value.trim();
   if(!name){ alert("請輸入作品名稱"); return; }
-  const p=createProject(name,document.getElementById("projectTypeInput").value,document.getElementById("projectNoteInput").value);
+
+  const type=document.getElementById("projectTypeInput").value;
+  const note=document.getElementById("projectNoteInput").value;
+  const projectInfo=readProjectInfoInputs();
+  let p=editingProjectId?getProject(editingProjectId):null;
+  const isEdit=!!p;
+
+  if(p){
+    p.name=name;
+    p.type=type;
+    p.note=note;
+    p.projectInfo=projectInfo;
+  }else{
+    p=createProject(name,type,note,projectInfo);
+  }
+
   const btn=document.getElementById("saveProjectBtn");
   btn.disabled=true;
   try{
@@ -516,10 +1248,12 @@ document.getElementById("saveProjectBtn").onclick=async()=>{
     }
   }catch(err){
     console.error(err);
-    alert("作品已建立，但照片儲存失敗；可以稍後在作品頁重新新增。");
+    alert(isEdit?"資料已更新，但照片儲存失敗。":"作品已建立，但照片儲存失敗；可以稍後再新增。");
   }
   setPendingProjectPhoto(null);
+  editingProjectId=null;
   btn.disabled=false;
+  saveState();
   closeModal("projectModal");
   renderAll();
 };
@@ -544,6 +1278,12 @@ document.getElementById("projectList").onclick=(e)=>{
 };
 
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>closeModal(b.dataset.close));
+
+document.getElementById("editProjectInfoBtn").onclick=()=>{
+  const p=getProject(detailProjectId); if(!p) return;
+  fillProjectModal(p);
+  openModal("projectModal");
+};
 
 document.getElementById("detailPhotoCard").onclick=()=>document.getElementById("detailPhotoInput").click();
 document.getElementById("detailPhotoChangeBtn").onclick=()=>document.getElementById("detailPhotoInput").click();
@@ -577,10 +1317,7 @@ function beginLap(id){
   pendingLapProjectId=id;
   pendingLapSnapshot={at:now(),totalMs:elapsedMs(p)};
 
-  const previousBoundary=p.laps?.length
-    ? (p.laps[p.laps.length-1].totalMs||0)
-    : (p.lapBaselineMs||0);
-  const segmentMs=Math.max(0,pendingLapSnapshot.totalMs-previousBoundary);
+  const segmentMs=currentSessionMs(p);
 
   document.getElementById("lapNameInput").value="";
   document.getElementById("lapNoteInput").value="";
@@ -617,7 +1354,7 @@ document.getElementById("clearLapPhotoBtn").onclick=()=>{
 
 document.getElementById("saveLapBtn").onclick=async()=>{
   const p=getProject(pendingLapProjectId); if(!p) return;
-  const name=document.getElementById("lapNameInput").value.trim()||`進度 ${p.laps.length+1}`;
+  const name=document.getElementById("lapNameInput").value.trim()||`里程碑 ${p.laps.length+1}`;
   const note=document.getElementById("lapNoteInput").value.trim();
   const snapshot=pendingLapSnapshot||{at:now(),totalMs:elapsedMs(p)};
   const previousBoundary=p.laps.length
@@ -638,10 +1375,10 @@ document.getElementById("saveLapBtn").onclick=async()=>{
     }
   }catch(err){
     console.error(err);
-    alert("進度已記錄，但照片儲存失敗。");
+    alert("里程碑已記錄，但照片儲存失敗。");
   }finally{
     btn.disabled=false;
-    btn.textContent="儲存這次進度";
+    btn.textContent="儲存里程碑";
   }
 
   pendingLapSnapshot=null;
@@ -652,7 +1389,7 @@ document.getElementById("saveLapBtn").onclick=async()=>{
 };
 document.getElementById("clearLapsBtn").onclick=()=>{
   const p=getProject(detailProjectId); if(!p) return;
-  if(confirm("確定要清除這個作品的所有分段紀錄嗎？")){
+  if(confirm("確定要清除這個作品的所有里程碑嗎？")){
     // 清除後從「目前累積時間」重新當作下一段的起點。
     p.lapBaselineMs=elapsedMs(p);
     const oldLaps=[...(p.laps||[])];
@@ -678,12 +1415,142 @@ document.getElementById("toggleCompleteBtn").onclick=()=>{
     if(p.isRunning) pauseProject(p);
     p.isCompleted=true;
     p.completedAt=now();
+    p.lastWorkedAt=p.completedAt;
   }else{
     p.isCompleted=false;
     p.completedAt=null;
   }
+  latestResumeBlob=null;
+  latestResumeProjectId=null;
   saveState();
   renderAll();
+};
+
+
+document.getElementById("resumeCardBtn").onclick=async()=>{
+  const p=getProject(detailProjectId); if(!p || !p.isCompleted) return;
+  openModal("resumeModal");
+  const loading=document.getElementById("resumeLoading");
+  loading.classList.remove("hidden");
+  try{
+    await buildResumeCard(p.id);
+  }catch(err){
+    console.error(err);
+    alert("履歷卡生成失敗，請再試一次。");
+    closeModal("resumeModal");
+  }finally{
+    loading.classList.add("hidden");
+  }
+};
+
+document.getElementById("shareResumeBtn").onclick=async()=>{
+  const p=getProject(latestResumeProjectId||detailProjectId); if(!p) return;
+  try{
+    const blob=(latestResumeProjectId===p.id && latestResumeBlob) ? latestResumeBlob : await buildResumeCard(p.id);
+    const file=new File([blob],`${safeFilename(p.name)}_YarnTime.png`,{type:"image/png"});
+    if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
+      await navigator.share({title:`${p.name} · YarnTime`,text:`${p.name}｜總工時 ${fmtHuman(elapsedMs(p))}`,files:[file]});
+    }else{
+      downloadResumeBlob(blob,p);
+    }
+  }catch(err){
+    if(err?.name!=="AbortError"){
+      console.error(err);
+      alert("這台裝置目前無法直接分享，改用「下載 PNG」即可。");
+    }
+  }
+};
+
+document.getElementById("downloadResumeBtn").onclick=async()=>{
+  const p=getProject(latestResumeProjectId||detailProjectId); if(!p) return;
+  try{
+    const blob=(latestResumeProjectId===p.id && latestResumeBlob) ? latestResumeBlob : await buildResumeCard(p.id);
+    downloadResumeBlob(blob,p);
+  }catch(err){
+    console.error(err);
+    alert("圖片下載失敗，請再試一次。");
+  }
+};
+
+
+document.getElementById("recapVideoBtn").onclick=()=>{
+  const p=getProject(detailProjectId); if(!p || !p.isCompleted) return;
+  latestRecapBlob=null;
+  latestRecapProjectId=p.id;
+  if(latestRecapUrl){ URL.revokeObjectURL(latestRecapUrl); latestRecapUrl=null; }
+  const video=document.getElementById("recapVideo");
+  video.pause();
+  video.removeAttribute("src");
+  video.load();
+  video.classList.add("hidden");
+  document.getElementById("recapPlaceholder").classList.remove("hidden");
+  document.getElementById("shareRecapBtn").classList.add("hidden");
+  document.getElementById("downloadRecapBtn").classList.add("hidden");
+  document.getElementById("createRecapBtn").classList.remove("hidden");
+  openModal("recapModal");
+};
+
+document.getElementById("createRecapBtn").onclick=async()=>{
+  const p=getProject(latestRecapProjectId||detailProjectId); if(!p) return;
+  const loading=document.getElementById("recapLoading");
+  const loadingText=document.getElementById("recapLoadingText");
+  const btn=document.getElementById("createRecapBtn");
+  const placeholder=document.getElementById("recapPlaceholder");
+  const video=document.getElementById("recapVideo");
+  loading.classList.remove("hidden");
+  btn.disabled=true;
+  placeholder.classList.add("hidden");
+  try{
+    loadingText.textContent="正在整理照片…";
+    const result=await buildRecapVideo(p.id,progress=>{
+      loadingText.textContent=`正在生成影片 ${Math.round(progress*100)}%`;
+    });
+    video.src=result.url;
+    video.classList.remove("hidden");
+    document.getElementById("shareRecapBtn").classList.remove("hidden");
+    document.getElementById("downloadRecapBtn").classList.remove("hidden");
+    btn.classList.add("hidden");
+    loadingText.textContent="完成";
+  }catch(err){
+    console.error(err);
+    placeholder.classList.remove("hidden");
+    if(err?.message==="unsupported"){
+      alert("這台 iPhone / Safari 目前不支援 YarnTime 的本機影片編碼。履歷卡與所有作品紀錄不受影響。");
+    }else{
+      alert("影片生成失敗，請關閉其他較吃記憶體的 App 後再試一次。");
+    }
+  }finally{
+    loading.classList.add("hidden");
+    btn.disabled=false;
+  }
+};
+
+document.getElementById("shareRecapBtn").onclick=async()=>{
+  const p=getProject(latestRecapProjectId||detailProjectId);
+  if(!p || !latestRecapBlob) return;
+  const ext=recapExtension(latestRecapBlob.type);
+  const file=new File([latestRecapBlob],`${safeFilename(p.name)}_YarnTime_Recap.${ext}`,{type:latestRecapBlob.type||"video/mp4"});
+  try{
+    if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
+      await navigator.share({
+        title:`${p.name} · YarnTime`,
+        text:`${p.name}｜總工時 ${fmtHuman(elapsedMs(p))}`,
+        files:[file]
+      });
+    }else{
+      downloadRecapBlob(latestRecapBlob,p);
+    }
+  }catch(err){
+    if(err?.name!=="AbortError"){
+      console.error(err);
+      alert("目前無法直接分享，請改用下載影片。");
+    }
+  }
+};
+
+document.getElementById("downloadRecapBtn").onclick=()=>{
+  const p=getProject(latestRecapProjectId||detailProjectId);
+  if(p && latestRecapBlob) downloadRecapBlob(latestRecapBlob,p);
 };
 
 document.querySelectorAll(".nav-item").forEach(btn=>btn.onclick=()=>{
@@ -710,7 +1577,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:5,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:8,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);

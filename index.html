@@ -34,21 +34,30 @@
         <div id="activeTimer" class="big-timer">00:00:00</div>
         <div class="active-actions">
           <button id="pauseActiveBtn" class="primary-btn">暫停</button>
-          <button id="lapActiveBtn" class="secondary-btn">分段</button>
+          <button id="lapActiveBtn" class="secondary-btn">📍 記錄進度</button>
         </div>
       </section>
 
       <section class="section-head">
         <div>
           <h2>作品</h2>
-          <p>每件作品各自累積時間</p>
+          <p>最近製作的作品會自動排在最上面</p>
         </div>
       </section>
 
+      <div class="project-tabs" role="tablist" aria-label="作品分類">
+        <button id="activeProjectsTab" class="project-tab active" data-project-filter="active">
+          製作中 <span id="activeProjectCount">0</span>
+        </button>
+        <button id="completedProjectsTab" class="project-tab" data-project-filter="completed">
+          已完成 <span id="completedProjectCount">0</span>
+        </button>
+      </div>
+
       <div id="emptyState" class="empty-state hidden">
         <div class="empty-yarn">🧶</div>
-        <h3>還沒有作品</h3>
-        <p>先新增一件正在織的作品吧。</p>
+        <h3 id="emptyStateTitle">還沒有作品</h3>
+        <p id="emptyStateText">先新增一件正在織的作品吧。</p>
         <button id="emptyAddBtn" class="primary-btn wide">新增作品</button>
       </div>
 
@@ -96,8 +105,38 @@
         <button id="clearProjectPhotoBtn" type="button" class="photo-remove-link hidden">移除選取</button>
       </div>
 
+      <details class="more-project-info">
+        <summary>更多作品資料 <span>選填</span></summary>
+        <div class="more-project-grid">
+          <label>針號
+            <input id="projectNeedleInput" maxlength="30" placeholder="例如：5.0 mm" />
+          </label>
+          <label>毛線
+            <input id="projectYarnInput" maxlength="60" placeholder="品牌、品名、色號" />
+          </label>
+          <label>使用線量
+            <input id="projectAmountInput" maxlength="30" placeholder="例如：380 g / 4 球" />
+          </label>
+          <label>材料成本
+            <input id="projectCostInput" inputmode="decimal" maxlength="12" placeholder="例如：520" />
+          </label>
+          <label>用途
+            <select id="projectPurposeInput">
+              <option value="">未設定</option>
+              <option value="自用">自用</option>
+              <option value="送人">送人</option>
+              <option value="販售">販售</option>
+              <option value="其他">其他</option>
+            </select>
+          </label>
+          <label>織圖／教學來源
+            <input id="projectSourceInput" maxlength="180" placeholder="名稱或網址" />
+          </label>
+        </div>
+      </details>
+
       <label>備註
-        <textarea id="projectNoteInput" rows="3" placeholder="線材、針號、顏色…"></textarea>
+        <textarea id="projectNoteInput" rows="3" placeholder="其他想記下來的事情…"></textarea>
       </label>
       <button id="saveProjectBtn" class="primary-btn wide">儲存</button>
     </div>
@@ -129,17 +168,17 @@
         <input id="detailPhotoInput" class="hidden-file-input" type="file" accept="image/*" />
       </div>
 
-      <div class="timer-label">總工時</div>
+      <div id="detailTimerLabel" class="timer-label">總工時</div>
       <div id="detailTimer" class="big-timer detail-total-timer">00:00:00</div>
       <div class="detail-actions">
         <button id="detailStartPauseBtn" class="primary-btn">開始</button>
-        <button id="detailLapBtn" class="secondary-btn">分段</button>
+        <button id="detailLapBtn" class="secondary-btn">📍 記錄進度</button>
       </div>
 
-      <div class="info-grid info-grid-3">
-        <div class="info-card current-segment-card"><span>目前這一段</span><strong id="detailCurrentSegment">00:00:00</strong></div>
+      <div id="detailLiveStats" class="info-grid info-grid-3">
+        <div class="info-card current-segment-card"><span>本次製作</span><strong id="detailCurrentSegment">00:00:00</strong></div>
         <div class="info-card"><span>累積工時</span><strong id="detailTotal">0 小時</strong></div>
-        <div class="info-card"><span>分段數</span><strong id="detailLapCount">0</strong></div>
+        <div class="info-card"><span>製作次數</span><strong id="detailSessionCount">0</strong></div>
       </div>
 
       <section class="completion-card">
@@ -148,18 +187,66 @@
           <h3 id="completionTitle">製作中</h3>
           <p id="completionText">完成後會留下總工時與製作期間。</p>
         </div>
-        <button id="toggleCompleteBtn" class="secondary-btn">標記完成</button>
+        <div class="completion-actions">
+          <button id="toggleCompleteBtn" class="secondary-btn">標記完成</button>
+          <button id="resumeCardBtn" class="resume-card-btn hidden">生成履歷卡</button>
+          <button id="recapVideoBtn" class="recap-video-btn hidden">生成回顧影片</button>
+        </div>
       </section>
+
+      <section id="completedConclusion" class="completed-conclusion hidden">
+        <div class="conclusion-head">
+          <div>
+            <div class="eyebrow">作品結論</div>
+            <h3>這件作品完成了 ✨</h3>
+          </div>
+          <span class="completed-badge">✓ 已完成</span>
+        </div>
+        <div class="conclusion-grid">
+          <div><span>總工時</span><strong id="conclusionTotal">—</strong></div>
+          <div><span>製作期間</span><strong id="conclusionDuration">—</strong></div>
+          <div><span>製作次數</span><strong id="conclusionSessions">—</strong></div>
+          <div><span>平均每次</span><strong id="conclusionAverage">—</strong></div>
+        </div>
+        <div class="conclusion-dates">
+          <span>開始 <b id="conclusionStartDate">—</b></span>
+          <i>→</i>
+          <span>完成 <b id="conclusionEndDate">—</b></span>
+        </div>
+      </section>
+
+      <div class="subsection session-section">
+        <div class="subsection-head">
+          <div>
+            <h3>製作紀錄</h3>
+            <p>開始 → 暫停會自動記一筆，不用另外輸入。</p>
+          </div>
+          <span id="sessionCountLabel" class="subtle-count">0 次</span>
+        </div>
+        <div id="sessionLegacyNote" class="legacy-session-note hidden"></div>
+        <div id="sessionList" class="session-list"></div>
+      </div>
 
       <div class="subsection journal-section">
         <div class="subsection-head">
           <div>
-            <h3>製作時間軸</h3>
-            <p>每次分段，都是作品成長的一個節點。</p>
+            <h3>里程碑</h3>
+            <p>只有值得留下來的進度才記，例如「主體完成」。</p>
           </div>
           <button id="clearLapsBtn" class="danger-link">清除</button>
         </div>
         <div id="lapList" class="timeline-list"></div>
+      </div>
+
+      <div class="subsection project-info-section">
+        <div class="subsection-head">
+          <div>
+            <h3>作品資訊</h3>
+            <p>針號、毛線、用量、成本等都收在作品裡。</p>
+          </div>
+          <button id="editProjectInfoBtn" class="text-btn">編輯</button>
+        </div>
+        <div id="projectInfoGrid" class="project-info-grid"></div>
       </div>
 
       <div class="subsection">
@@ -179,23 +266,23 @@
       <div class="sheet-handle"></div>
       <div class="sheet-head">
         <div>
-          <div class="eyebrow">製作紀錄</div>
-          <h2>新增進度節點</h2>
+          <div class="eyebrow">里程碑</div>
+          <h2>記錄重要進度</h2>
         </div>
         <button class="text-btn" data-close="lapModal">關閉</button>
       </div>
 
       <div class="snapshot-preview">
-        <div><span>本段時間</span><strong id="lapSnapshotSegment">00:00:00</strong></div>
+        <div><span>本次製作</span><strong id="lapSnapshotSegment">00:00:00</strong></div>
         <div><span>累積工時</span><strong id="lapSnapshotTotal">00:00:00</strong></div>
       </div>
 
-      <label>這一段做到哪裡？
-        <input id="lapNameInput" maxlength="50" placeholder="例如：主體第 1–10 圈" />
+      <label>這次想記什麼？
+        <input id="lapNameInput" maxlength="50" placeholder="例如：主體完成、第一隻袖子完成" />
       </label>
 
-      <label>留一句製作紀錄
-        <textarea id="lapNoteInput" rows="3" maxlength="180" placeholder="例如：換了 5.0 mm 鉤針後比較順。"></textarea>
+      <label>備註
+        <textarea id="lapNoteInput" rows="3" maxlength="180" placeholder="選填，例如：這段拆了兩次 XD"></textarea>
       </label>
 
       <div class="photo-field">
@@ -206,14 +293,72 @@
         <button id="lapPhotoBtn" type="button" class="photo-picker">
           <div id="lapPhotoPreview" class="photo-preview">
             <span class="photo-plus">＋</span>
-            <span>加入這次的進度照</span>
+            <span>加入里程碑照片</span>
           </div>
         </button>
         <input id="lapPhotoInput" class="hidden-file-input" type="file" accept="image/*" />
         <button id="clearLapPhotoBtn" type="button" class="photo-remove-link hidden">移除選取</button>
       </div>
 
-      <button id="saveLapBtn" class="primary-btn wide">儲存這次進度</button>
+      <button id="saveLapBtn" class="primary-btn wide">儲存里程碑</button>
+    </div>
+  </div>
+
+
+  <!-- Completion resume card -->
+  <div id="resumeModal" class="modal-backdrop hidden">
+    <div class="modal-sheet resume-sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-head">
+        <div>
+          <div class="eyebrow">YarnTime Journal</div>
+          <h2>作品完成履歷卡</h2>
+        </div>
+        <button class="text-btn" data-close="resumeModal">關閉</button>
+      </div>
+      <p class="resume-hint">會把作品照片、總工時、製作期間與進度紀錄整理成一張 4:5 圖片。</p>
+      <div class="resume-preview-wrap">
+        <canvas id="resumeCanvas" width="1080" height="1350" aria-label="作品完成履歷卡預覽"></canvas>
+        <div id="resumeLoading" class="resume-loading hidden">正在生成履歷卡…</div>
+      </div>
+      <div class="resume-actions">
+        <button id="shareResumeBtn" class="primary-btn">分享圖片</button>
+        <button id="downloadResumeBtn" class="secondary-btn">下載 PNG</button>
+      </div>
+      <p class="resume-footnote">iPhone 點「分享圖片」後，可以從分享選單選擇「儲存影像」、AirDrop、訊息或其他 App。</p>
+    </div>
+  </div>
+
+  <!-- Completion recap video -->
+  <div id="recapModal" class="modal-backdrop hidden">
+    <div class="modal-sheet recap-sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-head">
+        <div>
+          <div class="eyebrow">YarnTime Journal</div>
+          <h2>作品製作回顧</h2>
+        </div>
+        <button class="text-btn" data-close="recapModal">關閉</button>
+      </div>
+      <p class="resume-hint">會把封面、進度照片、階段名稱與工時整理成一支 9:16 直式短片。</p>
+      <div class="recap-preview-wrap">
+        <canvas id="recapCanvas" width="720" height="1280" class="hidden" aria-label="回顧影片生成畫布"></canvas>
+        <video id="recapVideo" playsinline controls class="hidden"></video>
+        <div id="recapPlaceholder" class="recap-placeholder">
+          <span>🎞️</span>
+          <strong>準備生成回顧影片</strong>
+          <p>照片越多，作品成長的感覺越完整。</p>
+        </div>
+        <div id="recapLoading" class="resume-loading hidden">
+          <span id="recapLoadingText">正在整理照片…</span>
+        </div>
+      </div>
+      <div class="resume-actions">
+        <button id="createRecapBtn" class="primary-btn">開始生成影片</button>
+        <button id="shareRecapBtn" class="secondary-btn hidden">分享影片</button>
+        <button id="downloadRecapBtn" class="secondary-btn hidden">下載影片</button>
+      </div>
+      <p class="resume-footnote">影片會在這台手機本機生成，不會上傳作品照片。不同 iOS / Safari 版本的影片編碼支援可能不同。</p>
     </div>
   </div>
 
