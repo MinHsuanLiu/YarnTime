@@ -423,3 +423,896 @@ button:disabled{opacity:.55;cursor:default}
 @media(max-width:430px){
   .seller-investment-strip{grid-template-columns:1fr 1fr}
 }
+
+
+/* =========================================================
+   v11 — YarnTime Identity
+   手作手帳 × 毛線標籤 × 時間線
+   ========================================================= */
+
+:root{
+  --yt-paper:#F6F0E7;
+  --yt-paper-2:#FCF8F2;
+  --yt-ink:#3A3029;
+  --yt-muted:#8B7B6D;
+  --yt-orange:#D9822B;
+  --yt-orange-deep:#B86517;
+  --yt-thread:#CDBBA8;
+  --yt-sage:#77806D;
+  --yt-line:#E5D8C9;
+  --yt-soft:#EFE5D9;
+}
+
+body{
+  background:
+    radial-gradient(circle at 18% 0%,rgba(255,255,255,.62),transparent 29rem),
+    var(--yt-paper);
+}
+
+.app-shell{padding-top:calc(env(safe-area-inset-top) + 24px)}
+
+/* --- 品牌字標 --- */
+.identity-topbar{align-items:flex-start;margin-bottom:2px}
+.identity-copy{min-width:0}
+.brand-lockup{
+  position:relative;
+  display:inline-flex;
+  align-items:baseline;
+  color:var(--yt-ink);
+  font-size:19px;
+  line-height:1;
+  letter-spacing:-.035em;
+  font-weight:760;
+  margin-bottom:15px;
+}
+.brand-yarn{font-weight:760}
+.brand-time{font-weight:480}
+.brand-thread{
+  position:absolute;
+  left:6px;
+  top:27px;
+  width:65px;
+  height:10px;
+  border-top:1.5px solid var(--yt-orange);
+  border-radius:50%;
+  transform:rotate(-2deg);
+}
+.brand-thread:after{
+  content:"";
+  position:absolute;
+  right:-12px;
+  top:-3px;
+  width:8px;
+  height:8px;
+  border:1.5px solid var(--yt-orange);
+  border-left-color:transparent;
+  border-radius:50%;
+}
+.identity-topbar h1{
+  font-size:31px;
+  letter-spacing:-.045em;
+  margin:0;
+  font-weight:760;
+}
+.home-intro{font-size:12px;margin:7px 0 0;max-width:260px}
+.identity-add-btn{
+  margin-top:26px;
+  height:39px;
+  background:transparent;
+  color:var(--yt-ink);
+  border:1px solid var(--yt-thread);
+  box-shadow:none;
+  padding:0 12px 0 9px;
+  font-size:12px;
+}
+.identity-add-btn .add-btn-plus{color:var(--yt-orange)}
+.identity-add-btn:active{background:var(--yt-soft)}
+
+/* --- 首頁正在製作：不再是普通 dashboard card --- */
+.identity-active{
+  position:relative;
+  overflow:hidden;
+  margin:30px 0 34px;
+  padding:22px 20px 19px;
+  border-radius:5px 26px 26px 5px;
+  background:var(--yt-ink);
+  box-shadow:0 14px 30px rgba(58,48,41,.11);
+}
+.identity-active:before{
+  content:"";
+  position:absolute;
+  left:0;top:0;bottom:0;
+  width:4px;
+  background:var(--yt-orange);
+}
+.identity-thread-line{
+  position:absolute;
+  right:-18px;
+  top:21px;
+  width:112px;
+  height:44px;
+  border-top:1px solid rgba(255,255,255,.20);
+  border-radius:50%;
+  transform:rotate(9deg);
+}
+.identity-thread-line:after{
+  content:"";
+  position:absolute;
+  right:23px;
+  top:-9px;
+  width:18px;
+  height:18px;
+  border:1px solid rgba(255,255,255,.20);
+  border-radius:50%;
+}
+.identity-thread-line span{
+  position:absolute;
+  right:10px;top:-3px;
+  width:6px;height:6px;border-radius:50%;
+  background:var(--yt-orange);
+}
+.active-now-label{
+  display:flex;align-items:center;gap:7px;
+  color:#CCBDB1;font-size:9px;font-weight:850;letter-spacing:.17em;
+}
+.active-now-label i{
+  width:7px;height:7px;border-radius:50%;background:var(--yt-orange);
+  box-shadow:0 0 0 5px rgba(217,130,43,.13);
+}
+.identity-active h2{font-size:19px;margin-top:7px}
+.identity-active .status-pill{
+  padding:5px 9px;
+  font-size:9px;
+  letter-spacing:.04em;
+  color:#E8DCD2;
+  background:rgba(255,255,255,.08);
+}
+.active-time-wrap{margin:23px 0 20px}
+.active-time-wrap>span{
+  display:block;text-align:center;
+  color:#BFAFA4;font-size:9px;letter-spacing:.11em;
+}
+.identity-active .big-timer{
+  font-size:48px;
+  font-weight:690;
+  letter-spacing:-.055em;
+  margin:4px 0 0;
+}
+.identity-active .active-actions{grid-template-columns:1.08fr .92fr}
+.identity-active .primary-btn{
+  background:var(--yt-orange);
+  border-radius:11px;
+}
+.identity-active .secondary-btn{
+  background:transparent;
+  border:1px solid #69574C;
+  border-radius:11px;
+}
+
+/* --- section heading --- */
+.identity-section-head{align-items:flex-end;margin:0 0 14px}
+.section-kicker{
+  color:var(--yt-orange);
+  font-size:8px;font-weight:850;letter-spacing:.18em;margin-bottom:4px
+}
+.identity-section-head h2{font-size:23px;letter-spacing:-.035em}
+.identity-section-head p{font-size:11px;margin-top:3px}
+.section-thread{
+  width:76px;height:17px;
+  border-top:1px solid var(--yt-thread);
+  border-radius:50%;
+  transform:rotate(-4deg);
+  margin-bottom:7px;
+}
+.section-thread:after{
+  content:"";display:block;
+  width:7px;height:7px;border:1px solid var(--yt-thread);
+  border-radius:50%;
+  margin-left:64px;margin-top:-4px;
+}
+
+/* --- tabs：像紙標籤，而非 segmented control --- */
+.project-tabs{
+  display:flex;
+  gap:18px;
+  background:transparent;
+  border-radius:0;
+  padding:0;
+  margin:0 0 4px;
+  border-bottom:1px solid var(--yt-line);
+}
+.project-tab{
+  position:relative;
+  flex:0 0 auto;
+  border-radius:0;
+  padding:10px 0 11px;
+  font-size:12px;
+  font-weight:720;
+}
+.project-tab span{
+  min-width:auto;height:auto;margin-left:4px;padding:0;
+  background:transparent!important;
+  font-size:9px;color:inherit!important;
+}
+.project-tab.active{background:transparent;box-shadow:none;color:var(--yt-ink)}
+.project-tab.active:after{
+  content:"";
+  position:absolute;left:0;right:0;bottom:-1px;height:2px;
+  background:var(--yt-orange);
+}
+
+/* --- 作品列表：視覺由「卡片」改成作品條目 --- */
+.project-list{gap:0}
+.identity-project-card{
+  position:relative;
+  background:transparent;
+  border:0;
+  border-radius:0;
+  padding:17px 0 18px;
+  box-shadow:none;
+  border-bottom:1px solid var(--yt-line);
+  overflow:visible;
+}
+.identity-project-card.running{border-color:var(--yt-line)}
+.identity-project-card .project-row{align-items:stretch;gap:13px}
+.project-visual{
+  width:70px;height:82px;
+  flex:0 0 70px;
+  border-radius:17px 17px 17px 4px;
+  background:#EDE2D5;
+  overflow:hidden;
+  position:relative;
+  border:1px solid #E1D2C1;
+}
+.project-visual .project-thumb{width:100%;height:100%;object-fit:cover}
+.project-visual .project-fallback{
+  width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+  color:#9C826A;background:#EFE5D8;
+}
+.craft-mark-svg{
+  width:40px;height:40px;
+  fill:none;stroke:currentColor;stroke-width:1.45;
+  stroke-linecap:round;stroke-linejoin:round;
+}
+.project-live-dot{
+  position:absolute;right:7px;top:7px;width:8px;height:8px;border-radius:50%;
+  background:var(--yt-orange);
+  box-shadow:0 0 0 4px rgba(255,250,243,.8);
+}
+.identity-project-card .project-main{
+  padding:6px 0 3px;
+  display:flex;flex-direction:column;justify-content:flex-start;
+}
+.project-overline{
+  color:var(--yt-muted);
+  font-size:8px;font-weight:850;letter-spacing:.14em;
+  margin-bottom:5px;
+}
+.running .project-overline{color:var(--yt-orange)}
+.identity-project-card .project-title{
+  font-size:16px;line-height:1.23;white-space:normal;
+}
+.identity-project-card .project-journal-meta{
+  font-size:9.5px;line-height:1.45;margin-top:8px;color:#9B8878;
+}
+.project-finished-date{
+  font-size:9px;color:#A38F7E;margin-top:3px;
+}
+.project-time-wrap{
+  flex:0 0 auto;
+  text-align:right;
+  padding-top:7px;
+}
+.project-time-wrap>span{
+  display:block;
+  color:#A08C7A;
+  font-size:8px;letter-spacing:.05em;
+}
+.identity-project-card .project-time{
+  font-size:16px;
+  margin-top:4px;
+  color:var(--yt-ink);
+  font-weight:720;
+}
+.identity-project-card.running .project-time{color:var(--yt-orange)}
+.project-card-thread{
+  position:absolute;left:26px;bottom:-6px;width:70px;height:12px;
+  pointer-events:none;z-index:1;
+}
+.project-card-thread i{
+  display:block;width:60px;border-top:1px solid transparent;
+}
+.identity-project-card.running .project-card-thread i{
+  border-color:rgba(217,130,43,.45);
+}
+.identity-project-card.running .project-card-thread span{
+  position:absolute;right:0;top:-3px;width:7px;height:7px;
+  border:1px solid rgba(217,130,43,.7);border-radius:50%;
+}
+.identity-project-card .project-actions{
+  margin:11px 0 0 83px;
+  gap:8px;
+}
+.identity-project-card .project-actions button{
+  flex:0 0 auto;
+  padding:8px 12px;
+  font-size:10px;
+  border-radius:999px;
+  font-weight:780;
+}
+.identity-project-card .start-mini{
+  background:var(--yt-ink);
+}
+.identity-project-card.running .start-mini{
+  background:var(--yt-orange);
+}
+.identity-project-card .detail-mini{
+  background:transparent;
+  border:1px solid var(--yt-thread);
+}
+.identity-project-card .detail-mini span{margin-left:3px}
+.completed-project-card{background:transparent}
+.completed-project-card .project-overline{color:var(--yt-sage)}
+.completed-project-card .project-time{color:var(--yt-sage)}
+.completed-project-card .project-actions{margin-left:83px}
+.completed-project-card .completed-detail-btn{color:var(--yt-sage);border-color:#C9D0C3}
+
+/* --- empty state：像空白手帳頁 --- */
+.empty-state{
+  margin-top:18px;
+  background:transparent;
+  border:1px dashed #D2BEAA;
+  border-radius:4px 24px 24px 4px;
+  padding:38px 24px 32px;
+}
+.empty-yarn svg{
+  width:52px;height:52px;fill:none;
+  stroke:#AF9276;stroke-width:1.45;stroke-linecap:round;stroke-linejoin:round;
+}
+
+/* --- bottom nav：自有線條 icon --- */
+.identity-nav{
+  background:rgba(250,246,240,.94);
+  border-top:1px solid #E5D8C9;
+  backdrop-filter:blur(20px);
+}
+.identity-nav .nav-item{
+  color:#9A8878;
+  font-size:inherit;
+  gap:3px;
+}
+.identity-nav .nav-icon{
+  width:21px;height:21px;
+  fill:none;stroke:currentColor;stroke-width:1.55;
+  stroke-linecap:round;stroke-linejoin:round;
+}
+.identity-nav .nav-item span{font-size:9px;font-weight:680}
+.identity-nav .nav-item.active{color:var(--yt-orange)}
+
+/* --- 詳情頁：像作品手帳，不是一疊卡片 --- */
+#detailModal .modal-sheet.tall{
+  background:var(--yt-paper-2);
+}
+#detailModal .sheet-head{
+  margin-bottom:8px;
+}
+#detailModal .sheet-head .eyebrow{
+  font-size:8px;letter-spacing:.16em;
+}
+#detailModal #detailName{
+  font-size:25px;letter-spacing:-.035em;margin-top:3px;
+}
+.detail-signature-line{
+  display:flex;align-items:center;
+  height:16px;margin:0 0 10px;
+}
+.detail-signature-knot{
+  width:7px;height:7px;border:1.5px solid var(--yt-orange);border-radius:50%;
+}
+.detail-signature-line i{
+  width:82px;border-top:1px solid #D9C7B6;margin-left:-1px;
+}
+.detail-photo-card{
+  height:210px;
+  border-radius:3px 25px 25px 3px;
+  background:#EEE4D9;
+}
+.detail-photo-icon svg{
+  width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;
+}
+.detail-photo-empty{font-size:11px}
+.detail-photo-actions{margin-top:1px}
+#detailModal .timer-label{
+  margin-top:19px;
+  color:#A28E7C;
+  font-size:8px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+#detailModal .detail-total-timer{
+  font-size:49px;
+  font-weight:680;
+  letter-spacing:-.055em;
+  margin:3px 0 15px;
+}
+#detailModal .detail-actions{
+  max-width:360px;margin:0 auto;
+}
+#detailModal .detail-actions button{
+  border-radius:10px;
+  padding:12px 15px;
+}
+#detailModal .info-grid-3{
+  margin-top:19px;
+  border-top:1px solid var(--yt-line);
+  border-bottom:1px solid var(--yt-line);
+  gap:0;
+}
+#detailModal .info-card{
+  background:transparent!important;
+  border-radius:0;
+  padding:13px 8px;
+  text-align:center;
+  border-right:1px solid var(--yt-line);
+}
+#detailModal .info-card:last-child{border-right:0}
+#detailModal .info-card span{font-size:8px}
+#detailModal .info-card strong{font-size:14px;margin-top:4px}
+#detailModal .current-segment-card strong{color:var(--yt-orange)}
+
+/* completion as a paper label */
+#detailModal .completion-card{
+  position:relative;
+  border:0;
+  border-top:1px solid var(--yt-line);
+  border-bottom:1px solid var(--yt-line);
+  background:transparent;
+  border-radius:0;
+  padding:18px 0;
+  margin-top:25px;
+}
+#detailModal .completion-card:before{
+  content:"";
+  position:absolute;left:-20px;top:17px;width:4px;height:30px;background:var(--yt-sage);
+}
+#detailModal .completion-card .eyebrow{color:var(--yt-sage);font-size:8px}
+#detailModal .completion-card h3{font-size:16px}
+#detailModal .completion-card p{font-size:10px}
+#detailModal .completion-card button{border-radius:999px;font-size:10px}
+.completed-conclusion{
+  border-radius:3px 22px 22px 3px!important;
+  box-shadow:none!important;
+  border:1px solid #DCE0D8!important;
+  background:#F3F5F0!important;
+}
+.completed-conclusion .eyebrow{color:var(--yt-sage)!important}
+
+/* sections rely on whitespace and rules, not cards */
+#detailModal .subsection{
+  margin-top:31px;
+}
+#detailModal .subsection-head{
+  border-bottom:1px solid var(--yt-line);
+  padding-bottom:10px;
+  margin-bottom:6px;
+}
+#detailModal .subsection-head h3{
+  font-size:15px;
+  letter-spacing:-.015em;
+}
+#detailModal .subsection-head p{
+  font-size:9px!important;
+  margin-top:3px!important;
+}
+#detailModal .project-info-item{
+  background:transparent;
+  border:0;
+  border-bottom:1px solid var(--yt-line);
+  border-radius:0;
+  padding:11px 0;
+}
+#detailModal .session-row{
+  background:transparent;
+  border:0;
+  border-bottom:1px solid var(--yt-line);
+  border-radius:0;
+  padding:11px 2px;
+}
+#detailModal .mini-action-btn{
+  background:transparent;
+  border:1px solid var(--yt-thread);
+  color:var(--yt-ink);
+}
+#detailModal .subtle-count{
+  background:transparent;
+}
+
+/* --- YarnTime signature timeline --- */
+.timeline-list{
+  position:relative;
+  margin-top:12px;
+}
+.timeline-list:before{
+  content:"";
+  position:absolute;left:14px;top:4px;bottom:12px;
+  width:1px;background:linear-gradient(var(--yt-orange),#D9C9B9 38%,#E5D8C9);
+}
+.timeline-item{
+  grid-template-columns:30px 1fr;
+  gap:12px;
+  margin-bottom:4px;
+}
+.timeline-marker{
+  position:relative;z-index:2;
+}
+.timeline-marker>i{
+  display:none;
+}
+.timeline-marker .yarn-knot{
+  width:17px;height:17px;
+  margin-top:10px;
+  background:var(--yt-paper-2);
+  border:1.5px solid var(--yt-orange);
+  border-radius:50%;
+  box-shadow:0 0 0 5px var(--yt-paper-2);
+}
+.timeline-marker .yarn-knot:after{
+  content:"";
+  position:absolute;
+  width:7px;height:5px;
+  border-top:1px solid var(--yt-orange);
+  border-radius:50%;
+  transform:rotate(35deg);
+}
+.timeline-marker .yarn-knot b{
+  display:none;
+}
+.timeline-card{
+  background:transparent;
+  border:0;
+  border-bottom:1px solid var(--yt-line);
+  border-radius:0;
+  padding:9px 0 16px;
+  margin-bottom:3px;
+}
+.timeline-card-head strong{font-size:14px}
+.timeline-card-head small{font-size:9px}
+.timeline-time b{font-size:9px;color:var(--yt-orange)}
+.timeline-note{
+  background:#F2E9DE;
+  border-radius:3px 13px 13px 3px;
+  font-size:10px;
+}
+.timeline-photo{
+  border-radius:3px 18px 18px 3px;
+}
+.timeline-empty{
+  position:relative;
+  background:transparent;
+  border:1px dashed #D7C4B1;
+  border-radius:3px 18px 18px 3px;
+  padding:24px 15px 24px 42px;
+  text-align:left;
+}
+.timeline-empty-knot{
+  position:absolute;left:17px;top:27px;
+  width:10px;height:10px;border:1.5px solid var(--yt-orange);border-radius:50%;
+}
+.timeline-empty p{font-size:10px;margin:0}
+
+/* --- modals generally less bubbly --- */
+.modal-backdrop{background:rgba(44,34,27,.42)}
+.modal-sheet{
+  border-radius:24px 24px 0 0;
+  background:var(--yt-paper-2);
+}
+input,textarea,select{
+  border-radius:10px;
+  background:#FFFCF8;
+}
+.photo-picker{border-radius:3px 17px 17px 3px}
+.primary-btn,.secondary-btn,.danger-btn{border-radius:11px}
+
+/* stats: keep data, reduce generic SaaS feel */
+.stats-summary{
+  position:relative;
+  overflow:hidden;
+  border-radius:4px 26px 26px 4px;
+  box-shadow:none;
+}
+.stats-summary:before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--yt-orange);
+}
+.stats-summary .eyebrow{font-size:8px}
+.stat-row,.settings-card{
+  border-radius:3px 17px 17px 3px;
+  box-shadow:none;
+}
+
+/* seller remains secondary, not product identity */
+.seller-pricing-section{
+  border-radius:3px 20px 20px 3px!important;
+}
+.pricing-level,.seller-reality-card,.seller-result-card{
+  border-radius:3px 16px 16px 3px!important;
+}
+
+/* little motion only where it means "now" */
+@keyframes ytPulse{
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:.62;transform:scale(.82)}
+}
+.running .project-live-dot,
+.active-now-label i{
+  animation:ytPulse 1.8s ease-in-out infinite;
+}
+
+@media(max-width:430px){
+  .identity-topbar h1{font-size:28px}
+  .identity-add-btn span:last-child{display:none}
+  .identity-add-btn{width:39px;padding:0;justify-content:center;border-radius:50%}
+  .identity-active .big-timer{font-size:43px}
+  .identity-project-card .project-row{gap:11px}
+  .project-visual{width:64px;height:76px;flex-basis:64px}
+  .identity-project-card .project-actions{margin-left:75px}
+  .completed-project-card .project-actions{margin-left:75px}
+  .project-time-wrap{max-width:92px}
+  .identity-project-card .project-time{font-size:14px}
+  #detailModal .detail-total-timer{font-size:44px}
+  #detailModal .info-grid-3{grid-template-columns:repeat(3,1fr)}
+  #detailModal .current-segment-card{grid-column:auto}
+}
+
+
+/* =========================================================
+   v12 — 大量分段 + 照片同步 + 多頁回顧
+   ========================================================= */
+
+.load-more-btn{
+  width:100%;
+  margin-top:10px;
+  padding:11px 8px;
+  border:0;
+  border-top:1px solid var(--yt-line);
+  background:transparent;
+  color:var(--yt-muted);
+  font-size:10px;
+  font-weight:760;
+}
+.load-more-btn:active{color:var(--yt-orange)}
+
+.milestone-head-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:6px;
+  flex-wrap:wrap;
+}
+.milestone-head-actions .danger-link{padding-left:2px}
+
+/* Photo selection */
+.resume-photo-library{
+  margin:12px 0 14px;
+  padding:13px 0 14px;
+  border-top:1px solid var(--yt-line);
+  border-bottom:1px solid var(--yt-line);
+}
+.resume-library-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+}
+.resume-library-head>div:first-child{
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+}
+.resume-library-head strong{font-size:13px}
+.resume-library-head small{font-size:9px;color:var(--yt-muted)}
+.resume-library-actions{display:flex;gap:10px}
+.resume-library-actions .text-btn{font-size:9px}
+
+.resume-library-help{
+  margin:6px 0 10px;
+  font-size:9px;
+  line-height:1.45;
+  color:var(--yt-muted);
+}
+.resume-photo-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:7px;
+  max-height:320px;
+  overflow:auto;
+  padding:1px;
+}
+.resume-photo-item{
+  position:relative;
+  aspect-ratio:.82;
+  padding:0;
+  border:1px solid #E0D2C3;
+  border-radius:3px 14px 14px 3px;
+  overflow:hidden;
+  background:#EEE5DB;
+  color:#FFF;
+  text-align:left;
+}
+.resume-photo-item img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+.resume-photo-item:after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(transparent 40%,rgba(45,35,29,.76));
+  pointer-events:none;
+}
+.resume-photo-item.selected{
+  border-color:var(--yt-orange);
+  box-shadow:inset 0 0 0 3px var(--yt-orange);
+}
+.resume-photo-item.hero{
+  outline:2px solid #F0D3AF;
+  outline-offset:1px;
+}
+.resume-photo-check{
+  position:absolute;
+  z-index:4;
+  right:7px;
+  top:7px;
+  width:20px;
+  height:20px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:50%;
+  border:1px solid rgba(255,255,255,.7);
+  background:rgba(52,42,35,.62);
+  font-size:11px;
+  font-weight:850;
+}
+.resume-photo-item.selected .resume-photo-check{
+  background:var(--yt-orange);
+  border-color:var(--yt-orange);
+}
+.resume-photo-caption{
+  position:absolute;
+  z-index:4;
+  left:8px;
+  right:7px;
+  bottom:27px;
+  font-size:9px;
+  font-weight:800;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.resume-photo-meta{
+  position:absolute;
+  z-index:4;
+  left:8px;
+  right:7px;
+  bottom:9px;
+  font-size:7px;
+  color:#E8DDD5;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.resume-hero-btn{
+  position:absolute;
+  z-index:5;
+  left:7px;
+  top:7px;
+  border-radius:999px;
+  padding:4px 6px;
+  background:rgba(255,253,249,.92);
+  color:var(--yt-ink);
+  font-size:7px;
+  font-weight:850;
+}
+.resume-photo-item.hero .resume-hero-btn{
+  background:var(--yt-orange);
+  color:#FFF;
+}
+.resume-no-photos{
+  border:1px dashed #D5C1AD;
+  border-radius:3px 14px 14px 3px;
+  padding:17px;
+  font-size:10px;
+  line-height:1.5;
+  color:var(--yt-muted);
+}
+
+.resume-mode-note{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin-bottom:12px;
+}
+.resume-mode-note>div{
+  padding:10px;
+  border-left:2px solid #D6C1AB;
+  background:#F3EADF;
+}
+.resume-mode-note span{
+  display:block;
+  color:var(--yt-muted);
+  font-size:8px;
+}
+.resume-mode-note strong{
+  display:block;
+  margin-top:4px;
+  font-size:10px;
+}
+.resume-regenerate-btn{margin:8px 0 0}
+
+.album-create-btn{
+  width:100%;
+  margin-top:11px;
+  padding:13px 14px;
+  border:1px solid #D8C2AA;
+  border-radius:3px 16px 16px 3px;
+  background:#F7EBDD;
+  color:var(--yt-ink);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  text-align:left;
+}
+.album-create-btn span{display:block}
+.album-create-btn strong{display:block;font-size:12px}
+.album-create-btn small{
+  display:block;
+  margin-top:3px;
+  color:var(--yt-muted);
+  font-size:8px;
+  line-height:1.4;
+}
+.album-create-btn>b{
+  flex:0 0 auto;
+  color:var(--yt-orange);
+  font-size:20px;
+}
+
+.album-status{
+  margin:0 0 8px;
+  color:var(--yt-muted);
+  font-size:10px;
+}
+.album-preview-wrap{
+  position:relative;
+  min-height:330px;
+  border-radius:3px 20px 20px 3px;
+  overflow:hidden;
+  background:#ECE2D7;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.album-preview-wrap img{
+  width:100%;
+  height:auto;
+  display:block;
+}
+.album-placeholder{
+  padding:48px 28px;
+  text-align:center;
+}
+.album-placeholder strong{font-size:14px}
+.album-placeholder p{
+  margin-top:6px;
+  color:var(--yt-muted);
+  font-size:10px;
+  line-height:1.5;
+}
+
+@media(max-width:430px){
+  .resume-photo-grid{max-height:290px}
+  .resume-mode-note{grid-template-columns:1fr 1fr}
+}
