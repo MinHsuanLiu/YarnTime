@@ -2908,3 +2908,45 @@ body.settings-open{
     height:82px;
   }
 }
+
+
+/* v21.1 — unmistakable gear + recent running state */
+.header-icon-btn .settings-gear-icon{
+  width:27px !important;
+  height:27px !important;
+  fill:currentColor !important;
+  stroke:none !important;
+}
+.home-project-type{
+  color:var(--yt-orange);
+}
+
+
+/* =========================================================
+   v21.2 — 開始製作後回首頁
+   ========================================================= */
+.app-toast{
+  position:fixed;
+  left:50%;
+  bottom:calc(94px + env(safe-area-inset-bottom));
+  z-index:190;
+  max-width:calc(100vw - 40px);
+  padding:10px 14px;
+  border-radius:999px;
+  background:rgba(58,48,41,.94);
+  color:#fff;
+  font-size:10px;
+  font-weight:750;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  box-shadow:0 8px 24px rgba(38,29,23,.16);
+  pointer-events:none;
+  opacity:0;
+  transform:translate(-50%,10px);
+  transition:opacity .18s ease,transform .18s ease;
+}
+.app-toast.show{
+  opacity:1;
+  transform:translate(-50%,0);
+}

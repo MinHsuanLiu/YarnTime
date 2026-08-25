@@ -1359,8 +1359,12 @@ function renderHome(){
   document.getElementById("homeNoActive").classList.toggle("hidden",!!(running&&running.isRunning));
 
   const recent=state.projects
-    .filter(p=>p.id!==state.activeProjectId)
-    .sort((a,b)=>(b.lastWorkedAt||b.completedAt||b.createdAt||0)-(a.lastWorkedAt||a.completedAt||a.createdAt||0))
+    .slice()
+    .sort((a,b)=>{
+      // 正在製作的作品優先，其餘依最後製作時間排序。
+      if(!!a.isRunning!==!!b.isRunning) return b.isRunning-a.isRunning;
+      return (b.lastWorkedAt||b.completedAt||b.createdAt||0)-(a.lastWorkedAt||a.completedAt||a.createdAt||0);
+    })
     .slice(0,3);
 
   const list=document.getElementById("homeRecentList");
@@ -1374,7 +1378,7 @@ function renderHome(){
         <span class="project-fallback">${craftMarkSVG(p.type)}</span>
       </div>
       <div class="home-project-copy">
-        <span class="home-project-type">${escapeHTML(p.type)}${p.isCompleted?" · 已完成":""}</span>
+        <span class="home-project-type">${p.isRunning?"正在製作 · ":""}${escapeHTML(p.type)}${p.isCompleted?" · 已完成":""}</span>
         <strong>${escapeHTML(p.name)}</strong>
         <small>${fmtHuman(elapsedMs(p))} · ${p.sessions?.length||0} 次製作</small>
       </div>
@@ -1384,10 +1388,18 @@ function renderHome(){
   applyProjectPhotos();
 
   const monthStart=localMonthStart(Date.now());
-  const nextMonth=new Date(monthStart); nextMonth.setMonth(nextMonth.getMonth()+1);
-  const monthMs=state.projects.reduce((sum,p)=>sum+projectSessionDurationInRange(p,monthStart.getTime(),nextMonth.getTime()),0);
+  const monthEnd=nextMonthStart(Date.now());
+  const nowMs=Date.now();
+  const monthMs=state.projects.reduce((sum,p)=>{
+    let total=projectSessionDurationInRange(p,monthStart,monthEnd);
+    // 目前正在進行的 Session 尚未寫入 sessions，也一起計入首頁即時統計。
+    if(p.isRunning && p.startedAt){
+      total+=overlapDuration(p.startedAt,nowMs,monthStart,monthEnd);
+    }
+    return sum+total;
+  },0);
   const wip=state.projects.filter(p=>!p.isCompleted).length;
-  const completed=state.projects.filter(p=>p.isCompleted && (p.completedAt||0)>=monthStart.getTime() && (p.completedAt||0)<nextMonth.getTime()).length;
+  const completed=state.projects.filter(p=>p.isCompleted && (p.completedAt||0)>=monthStart && (p.completedAt||0)<monthEnd).length;
 
   document.getElementById("homeMonthTime").textContent=formatHomeTime(monthMs);
   document.getElementById("homeWipCount").textContent=`${wip} 件`;
@@ -1439,6 +1451,20 @@ function renderRecapHub(){
     </article>
   `).join("");
   applyRecapHubPhotos();
+}
+
+let appToastTimer=null;
+function showAppToast(message){
+  const toast=document.getElementById("appToast");
+  if(!toast) return;
+  toast.textContent=message;
+  toast.classList.remove("hidden");
+  requestAnimationFrame(()=>toast.classList.add("show"));
+  clearTimeout(appToastTimer);
+  appToastTimer=setTimeout(()=>{
+    toast.classList.remove("show");
+    setTimeout(()=>toast.classList.add("hidden"),180);
+  },1600);
 }
 
 function switchMainView(view){
@@ -2065,7 +2091,21 @@ document.getElementById("clearProjectPhotoBtn").onclick=()=>{
 document.getElementById("projectList").onclick=(e)=>{
   const btn=e.target.closest("button"); if(!btn) return;
   const id=btn.dataset.id;
-  if(btn.dataset.action==="toggle") toggleProject(id);
+
+  if(btn.dataset.action==="toggle"){
+    const p=getProject(id); if(!p) return;
+    const wasRunning=!!p.isRunning;
+
+    toggleProject(id);
+
+    // 只有「開始 / 切換製作」才回首頁；暫停則留在作品頁。
+    if(!wasRunning){
+      switchMainView("home");
+      showAppToast(`已開始製作｜${p.name}`);
+    }
+    return;
+  }
+
   if(btn.dataset.action==="detail"){
     detailProjectId=id;
     currentDetailTab="journal";
@@ -2802,7 +2842,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:21,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:21.2,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
@@ -2858,6 +2898,18 @@ setInterval(()=>{
     const p=getProject(el.dataset.timeId); if(p) el.textContent=fmt(elapsedMs(p));
   });
   renderActive();
+  if(currentMainView==="home"){
+    const monthStart=localMonthStart(Date.now());
+    const monthEnd=nextMonthStart(Date.now());
+    const nowMs=Date.now();
+    const monthMs=state.projects.reduce((sum,p)=>{
+      let total=projectSessionDurationInRange(p,monthStart,monthEnd);
+      if(p.isRunning && p.startedAt) total+=overlapDuration(p.startedAt,nowMs,monthStart,monthEnd);
+      return sum+total;
+    },0);
+    const homeMonth=document.getElementById("homeMonthTime");
+    if(homeMonth) homeMonth.textContent=formatHomeTime(monthMs);
+  }
   // v18.1: 不再每秒重畫整個作品詳情，避免輸入框、捲動位置被重設。
   updateDetailLiveOnly();
 },1000);
