@@ -1,4 +1,4 @@
-# YarnTime PWA v16 — Logo Header
+# YarnTime PWA v17 — New App Icon
 
 這是一個可安裝到 iPhone 主畫面的網頁 App（PWA）。
 
@@ -512,3 +512,32 @@ YarnTime 反推：
 - app.js
 - styles.css
 - sw.js
+
+
+## v17 — App 圖示更新
+
+### 新的主畫面 App Icon
+- 米白底
+- 橘色毛線球線條 mark
+- 與首頁 Logo 同語言
+- 乾淨、簡單、不走花俏裝飾
+
+### 已更新檔案
+- icon-192.png
+- icon-512.png
+
+### iPhone 看到新圖示的方法
+如果你已經把舊版加到主畫面，更新 GitHub 後：
+1. 重新整理網站
+2. 若主畫面圖示沒有立刻變，先刪掉舊的主畫面捷徑
+3. 再次「加入主畫面」
+
+這樣通常就會吃到新 icon。
+
+## GitHub 更新
+覆蓋：
+- index.html
+- app.js
+- sw.js
+- icon-192.png
+- icon-512.png
