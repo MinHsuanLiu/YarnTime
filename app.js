@@ -16,6 +16,7 @@ let latestRecapBlob = null;
 let latestRecapProjectId = null;
 let latestRecapUrl = null;
 let editingProjectId = null;
+let editingSessionId = null;
 
 function defaultState(){ return {projects:[], activeProjectId:null}; }
 function loadState(){
@@ -27,6 +28,8 @@ function loadState(){
     s.projects.forEach(p=>{
       if(!Array.isArray(p.sessions)) p.sessions=[];
       if(!p.projectInfo || typeof p.projectInfo!=="object") p.projectInfo={};
+      if(!p.sellerPricing || typeof p.sellerPricing!=="object") p.sellerPricing={};
+      if(!("valueAdd" in p.sellerPricing)) p.sellerPricing.valueAdd=null;
       if(!Array.isArray(p.laps)) p.laps=[];
       if(!p.lastWorkedAt) p.lastWorkedAt=p.createdAt||Date.now();
       if(!("isCompleted" in p)) p.isCompleted=false;
@@ -126,6 +129,83 @@ function fmtCompact(ms){
 function parseCost(value){
   const n=Number(String(value||"").replace(/,/g,"").trim());
   return Number.isFinite(n) && n>=0 ? n : null;
+}
+
+function sessionTotalMs(p){
+  return (p.sessions||[]).reduce((sum,s)=>sum+(s.durationMs||0),0);
+}
+function sessionLegacyBaseMs(p){
+  return Math.max(0,(p.accumulatedMs||0)-sessionTotalMs(p));
+}
+function recalcAccumulatedFromSessions(p,legacyBase=null){
+  const base=legacyBase==null?sessionLegacyBaseMs(p):legacyBase;
+  p.accumulatedMs=base+sessionTotalMs(p);
+}
+function localDateInputValue(ms){
+  const d=new Date(ms);
+  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+function localTimeInputValue(ms){
+  const d=new Date(ms);
+  return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+}
+function combineLocalDateTime(dateStr,timeStr){
+  if(!dateStr || !timeStr) return null;
+  const [y,m,d]=dateStr.split("-").map(Number);
+  const [hh,mm]=timeStr.split(":").map(Number);
+  const date=new Date(y,m-1,d,hh,mm,0,0);
+  return date.getTime();
+}
+function money(n){
+  if(!Number.isFinite(n)) return "—";
+  return `NT$ ${Math.round(n).toLocaleString("zh-TW")}`;
+}
+function roundPrice(n){
+  if(!Number.isFinite(n) || n<=0) return 0;
+  return Math.ceil(n/10)*10;
+}
+function calcSellerPricing(p){
+  const info=p.projectInfo||{};
+  const s=p.sellerPricing||{};
+  const material=Number(info.cost)||0;
+  const packaging=Number(s.packaging)||0;
+  const hourlyRate=Number(s.hourlyRate)||0;
+  const feeRate=Math.min(99,Math.max(0,Number(s.feeRate)||0));
+  const valueAdd=Math.max(0,Number(s.valueAdd)||0);
+  const actualPrice=Math.max(0,Number(s.actualPrice)||0);
+
+  const hours=elapsedMs(p)/3600000;
+  const labor=hours*hourlyRate;
+  const cashCost=material+packaging;
+
+  // 只回收現金支出時，仍要考慮平台抽成。
+  const cashFloor=feeRate<100 ? cashCost/(1-feeRate/100) : cashCost;
+
+  // 目標售價：現金成本 + 理想人工 + 自訂設計/技術價值，再補足平台抽成。
+  const targetNet=cashCost+labor+valueAdd;
+  const targetPrice=feeRate<100 ? targetNet/(1-feeRate/100) : targetNet;
+  const roundedCashFloor=roundPrice(cashFloor);
+  const roundedTarget=roundPrice(targetPrice);
+  const targetFeeAmount=roundedTarget*feeRate/100;
+
+  // 使用者自己的市場售價，反推出「扣掉現金成本後，時間實際換到多少錢」。
+  let actualHourly=null;
+  let goalPercent=null;
+  let actualNetForTime=null;
+  let actualFeeAmount=null;
+  if(actualPrice>0){
+    actualFeeAmount=actualPrice*feeRate/100;
+    actualNetForTime=actualPrice-actualFeeAmount-cashCost;
+    if(hours>0) actualHourly=actualNetForTime/hours;
+    if(hourlyRate>0 && actualHourly!=null) goalPercent=(actualHourly/hourlyRate)*100;
+  }
+
+  return {
+    material,packaging,hourlyRate,feeRate,valueAdd,actualPrice,hours,labor,cashCost,
+    cashFloor,roundedCashFloor,targetPrice,roundedTarget,targetFeeAmount,
+    actualHourly,goalPercent,actualNetForTime,actualFeeAmount
+  };
 }
 
 // ---------- 作品與進度照片 ----------
@@ -855,6 +935,7 @@ function createProject(name,type,note,projectInfo={}){
   const p={
     id:uuid(),name,type,note,
     projectInfo,
+    sellerPricing:{hourlyRate:null,packaging:null,feeRate:null,valueAdd:null,actualPrice:null},
     createdAt:now(),lastWorkedAt:now(),completedAt:null,isCompleted:false,
     accumulatedMs:0,isRunning:false,startedAt:null,
     sessions:[],
@@ -970,6 +1051,63 @@ async function applyLapPhotos(projectId){
   }));
 }
 
+function renderSellerPricingResult(p){
+  if(!p) return;
+  const r=calcSellerPricing(p);
+
+  document.getElementById("sellerWorkHours").textContent=fmtHuman(elapsedMs(p));
+  document.getElementById("sellerMaterialSummary").textContent=money(r.material);
+
+  document.getElementById("sellerCashFloor").textContent=money(r.roundedCashFloor);
+  document.getElementById("sellerTargetPrice").textContent=r.hourlyRate>0?money(r.roundedTarget):"—";
+  document.getElementById("sellerActualPriceView").textContent=r.actualPrice>0?money(r.actualPrice):"尚未輸入";
+
+  document.getElementById("sellerTargetExplanation").textContent=r.hourlyRate>0
+    ? `以理想時薪 ${money(r.hourlyRate)} / 小時${r.valueAdd>0?`，另含 ${money(r.valueAdd)} 價值加成`:""}`
+    : "填入理想時薪後顯示";
+
+  document.getElementById("sellerMaterialCost").textContent=money(r.material);
+  document.getElementById("sellerLaborCost").textContent=r.hourlyRate>0?money(r.labor):"—";
+  document.getElementById("sellerPackagingCost").textContent=money(r.packaging);
+  document.getElementById("sellerValueAddCost").textContent=money(r.valueAdd);
+  document.getElementById("sellerFeeAmount").textContent=r.hourlyRate>0?money(r.targetFeeAmount):"—";
+
+  const reality=document.getElementById("sellerRealityCard");
+  if(r.actualPrice>0){
+    reality.classList.remove("hidden");
+    document.getElementById("sellerActualHourly").textContent=r.actualHourly!=null
+      ? `${money(r.actualHourly)} / hr`
+      : "工時不足";
+
+    const percentEl=document.getElementById("sellerGoalPercent");
+    const fill=document.getElementById("sellerGoalFill");
+    if(r.goalPercent!=null){
+      const shown=Math.max(0,Math.round(r.goalPercent));
+      percentEl.textContent=`${shown}%`;
+      fill.style.width=`${Math.min(100,shown)}%`;
+    }else{
+      percentEl.textContent="—";
+      fill.style.width="0%";
+    }
+
+    const gap=document.getElementById("sellerPriceGap");
+    if(r.hourlyRate>0 && r.roundedTarget>0){
+      const difference=r.actualPrice-r.roundedTarget;
+      if(Math.abs(difference)<10){
+        gap.textContent="你的售價大致等於這次設定下的目標售價。";
+      }else if(difference<0){
+        gap.textContent=`你的售價比「目標售價」低約 ${money(Math.abs(difference))}。這不代表價格錯，只表示市場售價沒有完全涵蓋你設定的理想時薪／價值加成。`;
+      }else{
+        gap.textContent=`你的售價比「目標售價」高約 ${money(difference)}。可能反映設計、品牌、稀有度或其他市場價值。`;
+      }
+    }else{
+      gap.textContent="填入理想時薪後，YarnTime 可以幫你比較「市場售價」與「目標售價」。";
+    }
+  }else{
+    reality.classList.add("hidden");
+  }
+}
+
 function renderDetail(){
   if(!detailProjectId) return;
   const p=getProject(detailProjectId); if(!p){ closeModal("detailModal"); return; }
@@ -1023,17 +1161,21 @@ function renderDetail(){
     legacyNote.classList.add("hidden");
   }
   sessionList.innerHTML=sessions.length?sessions.slice(0,30).map((s,index)=>`
-    <div class="session-row">
+    <button class="session-row session-row-button" data-session-id="${s.id}">
       <div class="session-date">
         <strong>${formatSessionDate(s.startedAt)}</strong>
         <small>${formatSessionClock(s.startedAt)} – ${formatSessionClock(s.endedAt)}</small>
       </div>
-      <div class="session-duration">${fmtHuman(s.durationMs)}</div>
-    </div>
+      <div class="session-row-right">
+        <div class="session-duration">${fmtHuman(s.durationMs)}</div>
+        <span class="session-edit-chevron">›</span>
+      </div>
+    </button>
   `).join(""):`<div class="session-empty">第一次按「開始 → 暫停」後，這裡就會自動出現紀錄。</div>`;
 
   const info=p.projectInfo||{};
   const infoItems=[
+    ["開始日期",formatCardDate(p.createdAt)],
     ["針號",info.needle],
     ["毛線",info.yarn],
     ["使用線量",info.amount],
@@ -1044,6 +1186,27 @@ function renderDetail(){
   document.getElementById("projectInfoGrid").innerHTML=infoItems.length
     ? infoItems.map(([label,value])=>`<div class="project-info-item"><span>${escapeHTML(label)}</span><strong>${escapeHTML(String(value))}</strong></div>`).join("")
     : `<div class="project-info-empty">還沒有填作品資料。可以補上針號、毛線、用量或材料成本。</div>`;
+
+  const currentMs=currentSessionMs(p);
+  const longWarning=document.getElementById("longTimerWarning");
+  const showLong=p.isRunning && currentMs>=4*3600000;
+  longWarning.classList.toggle("hidden",!showLong);
+  if(showLong){
+    document.getElementById("longTimerWarningText").textContent=`本次已計時 ${fmtHuman(currentMs)}。如果其實早就停工，可以先暫停，再點製作紀錄修正。`;
+  }
+
+  const sellerSection=document.getElementById("sellerPricingSection");
+  const isSeller=(p.projectInfo?.purpose==="販售");
+  sellerSection.classList.toggle("hidden",!isSeller);
+  if(isSeller){
+    const seller=p.sellerPricing||{};
+    document.getElementById("sellerHourlyRateInput").value=seller.hourlyRate??"";
+    document.getElementById("sellerPackagingInput").value=seller.packaging??"";
+    document.getElementById("sellerFeeRateInput").value=seller.feeRate??"";
+    document.getElementById("sellerValueAddInput").value=seller.valueAdd??"";
+    document.getElementById("sellerActualPriceInput").value=seller.actualPrice??"";
+    renderSellerPricingResult(p);
+  }
 
   const lapList=document.getElementById("lapList");
   let previousTotal=p.lapBaselineMs||0;
@@ -1194,6 +1357,7 @@ function fillProjectModal(p=null){
   document.getElementById("projectTypeInput").value=p?.type||"鉤針";
   document.getElementById("projectNoteInput").value=p?.note||"";
   const info=p?.projectInfo||{};
+  document.getElementById("projectStartDateInput").value=localDateInputValue(p?.createdAt||now());
   document.getElementById("projectNeedleInput").value=info.needle||"";
   document.getElementById("projectYarnInput").value=info.yarn||"";
   document.getElementById("projectAmountInput").value=info.amount||"";
@@ -1214,6 +1378,44 @@ function readProjectInfoInputs(){
     source:document.getElementById("projectSourceInput").value.trim()
   };
 }
+function openSessionModal(projectId,sessionId=null){
+  const p=getProject(projectId); if(!p) return;
+  editingSessionId=sessionId;
+  const s=sessionId?(p.sessions||[]).find(x=>x.id===sessionId):null;
+  const reference=s?.startedAt||now();
+  const endRef=s?.endedAt||(reference+30*60000);
+
+  document.getElementById("sessionModalTitle").textContent=s?"修正製作紀錄":"補登製作";
+  document.getElementById("sessionDateInput").value=localDateInputValue(reference);
+  document.getElementById("sessionStartInput").value=localTimeInputValue(reference);
+  document.getElementById("sessionEndInput").value=localTimeInputValue(endRef);
+  document.getElementById("deleteSessionBtn").classList.toggle("hidden",!s);
+  updateSessionDurationPreview();
+  openModal("sessionModal");
+}
+function readSessionEditorTimes(){
+  const date=document.getElementById("sessionDateInput").value;
+  const startTime=document.getElementById("sessionStartInput").value;
+  const endTime=document.getElementById("sessionEndInput").value;
+  let start=combineLocalDateTime(date,startTime);
+  let end=combineLocalDateTime(date,endTime);
+  if(start==null || end==null) return null;
+  if(end<=start) end+=86400000;
+  return {start,end,durationMs:end-start};
+}
+function updateSessionDurationPreview(){
+  const times=readSessionEditorTimes();
+  const el=document.getElementById("sessionDurationPreview");
+  if(!times){
+    el.textContent="本次製作：—";
+    return;
+  }
+  el.textContent=`本次製作：${fmtHuman(times.durationMs)}`;
+}
+["sessionDateInput","sessionStartInput","sessionEndInput"].forEach(id=>{
+  document.getElementById(id).addEventListener("input",updateSessionDurationPreview);
+});
+
 document.getElementById("addProjectBtn").onclick=()=>{
   fillProjectModal(null);
   openModal("projectModal");
@@ -1230,13 +1432,18 @@ document.getElementById("saveProjectBtn").onclick=async()=>{
   let p=editingProjectId?getProject(editingProjectId):null;
   const isEdit=!!p;
 
+  const startDateStr=document.getElementById("projectStartDateInput").value;
+  const parsedStart=startDateStr?combineLocalDateTime(startDateStr,"00:00"):null;
+
   if(p){
     p.name=name;
     p.type=type;
     p.note=note;
     p.projectInfo=projectInfo;
+    if(parsedStart) p.createdAt=parsedStart;
   }else{
     p=createProject(name,type,note,projectInfo);
+    if(parsedStart) p.createdAt=parsedStart;
   }
 
   const btn=document.getElementById("saveProjectBtn");
@@ -1278,6 +1485,60 @@ document.getElementById("projectList").onclick=(e)=>{
 };
 
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>closeModal(b.dataset.close));
+
+document.getElementById("addSessionBtn").onclick=()=>{
+  if(detailProjectId) openSessionModal(detailProjectId,null);
+};
+document.getElementById("sessionList").onclick=(e)=>{
+  const row=e.target.closest("[data-session-id]");
+  if(!row || !detailProjectId) return;
+  openSessionModal(detailProjectId,row.dataset.sessionId);
+};
+document.getElementById("saveSessionBtn").onclick=()=>{
+  const p=getProject(detailProjectId); if(!p) return;
+  const times=readSessionEditorTimes();
+  if(!times){ alert("請填完整的日期、開始與結束時間。"); return; }
+  if(times.durationMs<60000){ alert("製作時間至少要 1 分鐘。"); return; }
+  if(times.durationMs>24*3600000){ alert("單次紀錄不能超過 24 小時。"); return; }
+
+  const legacyBase=sessionLegacyBaseMs(p);
+  if(editingSessionId){
+    const s=(p.sessions||[]).find(x=>x.id===editingSessionId);
+    if(!s) return;
+    s.startedAt=times.start;
+    s.endedAt=times.end;
+    s.durationMs=times.durationMs;
+  }else{
+    ensureSessions(p).push({
+      id:uuid(),
+      startedAt:times.start,
+      endedAt:times.end,
+      durationMs:times.durationMs,
+      isManual:true
+    });
+  }
+  p.sessions.sort((a,b)=>(a.startedAt||0)-(b.startedAt||0));
+  recalcAccumulatedFromSessions(p,legacyBase);
+  p.lastWorkedAt=Math.max(p.lastWorkedAt||0,times.end);
+  saveState();
+  editingSessionId=null;
+  closeModal("sessionModal");
+  renderAll();
+};
+document.getElementById("deleteSessionBtn").onclick=()=>{
+  const p=getProject(detailProjectId); if(!p || !editingSessionId) return;
+  const s=(p.sessions||[]).find(x=>x.id===editingSessionId);
+  if(!s) return;
+  if(confirm(`確定刪除這筆 ${fmtHuman(s.durationMs)} 的製作紀錄嗎？`)){
+    const legacyBase=sessionLegacyBaseMs(p);
+    p.sessions=p.sessions.filter(x=>x.id!==editingSessionId);
+    recalcAccumulatedFromSessions(p,legacyBase);
+    editingSessionId=null;
+    saveState();
+    closeModal("sessionModal");
+    renderAll();
+  }
+};
 
 document.getElementById("editProjectInfoBtn").onclick=()=>{
   const p=getProject(detailProjectId); if(!p) return;
@@ -1327,6 +1588,15 @@ function beginLap(id){
   document.getElementById("lapSnapshotTotal").textContent=fmt(pendingLapSnapshot.totalMs);
   openModal("lapModal");
 }
+
+document.getElementById("longTimerPauseBtn").onclick=()=>{
+  const p=getProject(detailProjectId); if(!p || !p.isRunning) return;
+  pauseProject(p);
+  saveState();
+  renderAll();
+  const last=[...(p.sessions||[])].sort((a,b)=>(b.endedAt||0)-(a.endedAt||0))[0];
+  if(last) setTimeout(()=>openSessionModal(p.id,last.id),120);
+};
 
 document.getElementById("pauseActiveBtn").onclick=()=>{
   if(state.activeProjectId) toggleProject(state.activeProjectId);
@@ -1407,6 +1677,32 @@ document.getElementById("deleteProjectBtn").onclick=()=>{
     Promise.all((p.laps||[]).map(l=>deleteLapPhoto(p.id,l.id).catch(()=>{})));
     saveState(); closeModal("detailModal"); detailProjectId=null; renderAll();
   }
+};
+
+function readSellerPricingInputs(){
+  return {
+    hourlyRate:parseCost(document.getElementById("sellerHourlyRateInput").value),
+    packaging:parseCost(document.getElementById("sellerPackagingInput").value),
+    feeRate:parseCost(document.getElementById("sellerFeeRateInput").value),
+    valueAdd:parseCost(document.getElementById("sellerValueAddInput").value),
+    actualPrice:parseCost(document.getElementById("sellerActualPriceInput").value)
+  };
+}
+["sellerHourlyRateInput","sellerPackagingInput","sellerFeeRateInput","sellerValueAddInput","sellerActualPriceInput"].forEach(id=>{
+  document.getElementById(id).addEventListener("input",()=>{
+    const p=getProject(detailProjectId); if(!p) return;
+    const original=p.sellerPricing;
+    p.sellerPricing=readSellerPricingInputs();
+    renderSellerPricingResult(p);
+    p.sellerPricing=original;
+  });
+});
+document.getElementById("saveSellerPricingBtn").onclick=()=>{
+  const p=getProject(detailProjectId); if(!p) return;
+  p.sellerPricing=readSellerPricingInputs();
+  saveState();
+  renderSellerPricingResult(p);
+  alert("售價設定已儲存。");
 };
 
 document.getElementById("toggleCompleteBtn").onclick=()=>{
@@ -1553,13 +1849,52 @@ document.getElementById("downloadRecapBtn").onclick=()=>{
   if(p && latestRecapBlob) downloadRecapBlob(latestRecapBlob,p);
 };
 
+async function refreshStorageStatus(){
+  const usageEl=document.getElementById("storageUsageText");
+  const persistEl=document.getElementById("storagePersistText");
+  try{
+    if(navigator.storage?.estimate){
+      const est=await navigator.storage.estimate();
+      const mb=(est.usage||0)/1024/1024;
+      usageEl.textContent=mb<1?`${Math.round(mb*1024)} KB`:`${mb.toFixed(1)} MB`;
+    }else{
+      usageEl.textContent="此瀏覽器不提供";
+    }
+  }catch(e){ usageEl.textContent="無法取得"; }
+
+  try{
+    if(navigator.storage?.persisted){
+      const persisted=await navigator.storage.persisted();
+      persistEl.textContent=persisted?"已啟用":"尚未啟用";
+    }else{
+      persistEl.textContent="此瀏覽器不提供";
+    }
+  }catch(e){ persistEl.textContent="無法取得"; }
+}
+document.getElementById("requestPersistBtn").onclick=async()=>{
+  try{
+    if(!navigator.storage?.persist){
+      alert("這個 iPhone / Safari 版本沒有提供此功能，定期備份即可。");
+      return;
+    }
+    const ok=await navigator.storage.persist();
+    alert(ok?"已取得持久儲存權限。":"瀏覽器目前沒有授予持久儲存；資料仍可正常使用，記得定期備份。");
+    refreshStorageStatus();
+  }catch(e){
+    alert("目前無法要求持久儲存，請定期匯出備份。");
+  }
+};
+
 document.querySelectorAll(".nav-item").forEach(btn=>btn.onclick=()=>{
   document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
   btn.classList.add("active");
   document.getElementById("statsView").classList.add("hidden");
   document.getElementById("settingsView").classList.add("hidden");
   if(btn.dataset.view==="stats"){ renderStats(); document.getElementById("statsView").classList.remove("hidden"); }
-  if(btn.dataset.view==="settings") document.getElementById("settingsView").classList.remove("hidden");
+  if(btn.dataset.view==="settings"){
+    document.getElementById("settingsView").classList.remove("hidden");
+    refreshStorageStatus();
+  }
 });
 
 document.getElementById("exportBtn").onclick=async()=>{
@@ -1577,7 +1912,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:8,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:10,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
@@ -1636,7 +1971,15 @@ setInterval(()=>{
   if(detailProjectId) renderDetail();
 },1000);
 
-document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) renderAll(); });
+document.addEventListener("visibilitychange", ()=>{
+  if(!document.hidden){
+    renderAll();
+    const p=state.activeProjectId?getProject(state.activeProjectId):null;
+    if(p && currentSessionMs(p)>=4*3600000){
+      console.warn("YarnTime: long running session",p.name,fmtHuman(currentSessionMs(p)));
+    }
+  }
+});
 
 if("serviceWorker" in navigator){
   window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));

@@ -108,6 +108,9 @@
       <details class="more-project-info">
         <summary>更多作品資料 <span>選填</span></summary>
         <div class="more-project-grid">
+          <label>開始日期
+            <input id="projectStartDateInput" type="date" />
+          </label>
           <label>針號
             <input id="projectNeedleInput" maxlength="30" placeholder="例如：5.0 mm" />
           </label>
@@ -175,6 +178,14 @@
         <button id="detailLapBtn" class="secondary-btn">📍 記錄進度</button>
       </div>
 
+      <div id="longTimerWarning" class="long-timer-warning hidden">
+        <div>
+          <strong>這次已經計時很久了</strong>
+          <p id="longTimerWarningText">如果忘記按暫停，可以先暫停後再修正紀錄。</p>
+        </div>
+        <button id="longTimerPauseBtn" class="warning-btn">暫停</button>
+      </div>
+
       <div id="detailLiveStats" class="info-grid info-grid-3">
         <div class="info-card current-segment-card"><span>本次製作</span><strong id="detailCurrentSegment">00:00:00</strong></div>
         <div class="info-card"><span>累積工時</span><strong id="detailTotal">0 小時</strong></div>
@@ -221,7 +232,10 @@
             <h3>製作紀錄</h3>
             <p>開始 → 暫停會自動記一筆，不用另外輸入。</p>
           </div>
-          <span id="sessionCountLabel" class="subtle-count">0 次</span>
+          <div class="session-head-actions">
+            <span id="sessionCountLabel" class="subtle-count">0 次</span>
+            <button id="addSessionBtn" class="mini-action-btn">＋ 補登</button>
+          </div>
         </div>
         <div id="sessionLegacyNote" class="legacy-session-note hidden"></div>
         <div id="sessionList" class="session-list"></div>
@@ -249,6 +263,93 @@
         <div id="projectInfoGrid" class="project-info-grid"></div>
       </div>
 
+      <section id="sellerPricingSection" class="subsection seller-pricing-section hidden">
+        <div class="subsection-head">
+          <div>
+            <h3>售價透視</h3>
+            <p>不是替你決定價格，而是看見這個價格裡「時間值多少」。</p>
+          </div>
+          <span class="seller-badge">販售</span>
+        </div>
+
+        <div class="seller-investment-strip">
+          <div><span>目前總工時</span><strong id="sellerWorkHours">—</strong></div>
+          <div><span>材料成本</span><strong id="sellerMaterialSummary">—</strong></div>
+        </div>
+
+        <div class="seller-input-grid">
+          <label>理想時薪
+            <input id="sellerHourlyRateInput" inputmode="decimal" placeholder="例如：180" />
+          </label>
+          <label>包材／其他現金成本
+            <input id="sellerPackagingInput" inputmode="decimal" placeholder="例如：50" />
+          </label>
+          <label>平台抽成 %
+            <input id="sellerFeeRateInput" inputmode="decimal" placeholder="例如：8" />
+          </label>
+          <label>設計／技術價值加成
+            <input id="sellerValueAddInput" inputmode="decimal" placeholder="選填，例如：300" />
+          </label>
+          <label class="seller-actual-price">你實際／預計要賣多少？
+            <input id="sellerActualPriceInput" inputmode="decimal" placeholder="例如：1480" />
+          </label>
+        </div>
+
+        <div class="pricing-three-levels">
+          <div class="pricing-level cash-floor">
+            <span>① 現金成本底線</span>
+            <strong id="sellerCashFloor">—</strong>
+            <small>至少能回收材料、包材與平台抽成</small>
+          </div>
+
+          <div class="pricing-level target-price">
+            <span>② 目標售價</span>
+            <strong id="sellerTargetPrice">—</strong>
+            <small id="sellerTargetExplanation">填入理想時薪後顯示</small>
+          </div>
+
+          <div class="pricing-level actual-price-view">
+            <span>③ 你的售價</span>
+            <strong id="sellerActualPriceView">—</strong>
+            <small>市場價格由你決定，YarnTime 只幫你反推</small>
+          </div>
+        </div>
+
+        <div id="sellerRealityCard" class="seller-reality-card hidden">
+          <div class="seller-hourly-main">
+            <span>這個售價換算後</span>
+            <strong id="sellerActualHourly">—</strong>
+            <small>實際工時收入／小時</small>
+          </div>
+
+          <div class="seller-goal-row">
+            <span>理想時薪達成度</span>
+            <div class="seller-goal-track"><i id="sellerGoalFill"></i></div>
+            <b id="sellerGoalPercent">—</b>
+          </div>
+
+          <div id="sellerPriceGap" class="seller-price-gap"></div>
+        </div>
+
+        <details class="seller-breakdown-details">
+          <summary>查看價格拆解</summary>
+          <div class="seller-breakdown">
+            <div><span>材料</span><b id="sellerMaterialCost">—</b></div>
+            <div><span>理想人工</span><b id="sellerLaborCost">—</b></div>
+            <div><span>包材／其他</span><b id="sellerPackagingCost">—</b></div>
+            <div><span>設計／技術加成</span><b id="sellerValueAddCost">—</b></div>
+            <div><span>目標價平台抽成</span><b id="sellerFeeAmount">—</b></div>
+          </div>
+        </details>
+
+        <div class="seller-philosophy-note">
+          <strong>手作價格不一定等於時薪公式。</strong>
+          <p>設計感、熟練度、品牌、市場接受度都會影響售價。這裡的數字是「看懂價格」的工具，不是定價規則。</p>
+        </div>
+
+        <button id="saveSellerPricingBtn" class="secondary-btn wide">儲存售價設定</button>
+      </section>
+
       <div class="subsection">
         <h3>作品備註</h3>
         <p id="detailNote" class="note-text">—</p>
@@ -256,6 +357,40 @@
 
       <div class="danger-zone">
         <button id="deleteProjectBtn" class="danger-btn">刪除這個作品</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Session add / edit modal -->
+  <div id="sessionModal" class="modal-backdrop hidden">
+    <div class="modal-sheet compact">
+      <div class="sheet-handle"></div>
+      <div class="sheet-head">
+        <div>
+          <div class="eyebrow">製作紀錄</div>
+          <h2 id="sessionModalTitle">補登製作</h2>
+        </div>
+        <button class="text-btn" data-close="sessionModal">關閉</button>
+      </div>
+
+      <div class="session-edit-grid">
+        <label>日期
+          <input id="sessionDateInput" type="date" />
+        </label>
+        <label>開始
+          <input id="sessionStartInput" type="time" />
+        </label>
+        <label>結束
+          <input id="sessionEndInput" type="time" />
+        </label>
+      </div>
+
+      <div id="sessionDurationPreview" class="session-duration-preview">本次製作：—</div>
+      <p class="session-edit-hint">如果跨過午夜，結束時間早於開始時間時會自動視為隔天。</p>
+
+      <div class="session-modal-actions">
+        <button id="deleteSessionBtn" class="danger-btn hidden">刪除此筆</button>
+        <button id="saveSessionBtn" class="primary-btn">儲存紀錄</button>
       </div>
     </div>
   </div>
@@ -382,6 +517,14 @@
       <label class="file-label">匯入備份
         <input id="importInput" type="file" accept="application/json" />
       </label>
+    </div>
+    <div class="settings-card">
+      <h3>資料儲存狀態</h3>
+      <div class="storage-status-row"><span>版本</span><strong>YarnTime v10</strong></div>
+      <div class="storage-status-row"><span>已使用空間</span><strong id="storageUsageText">計算中…</strong></div>
+      <div class="storage-status-row"><span>持久儲存</span><strong id="storagePersistText">檢查中…</strong></div>
+      <button id="requestPersistBtn" class="secondary-btn wide">提高資料保留機率</button>
+      <p>瀏覽器仍可能在特殊情況下清理網站資料，因此重要作品建議定期匯出備份。</p>
     </div>
     <div class="settings-card">
       <h3>關於背景計時</h3>

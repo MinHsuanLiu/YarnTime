@@ -1,4 +1,4 @@
-const CACHE="yarntime-cache-v8";
+const CACHE="yarntime-cache-v10";
 const ASSETS=["./","./index.html","./styles.css","./app.js","./manifest.webmanifest","./icon-192.png","./icon-512.png"];
 
 self.addEventListener("install",e=>{

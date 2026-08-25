@@ -333,3 +333,93 @@ button:disabled{opacity:.55;cursor:default}
   .project-info-grid{grid-template-columns:1fr 1fr}
   .week-bars{gap:5px}
 }
+
+
+/* v9 — session 修正 / 補登 */
+.session-head-actions{display:flex;align-items:center;gap:7px}
+.mini-action-btn{border:0;background:#EFE4D8;color:var(--ink);border-radius:999px;padding:6px 9px;font-size:10px;font-weight:850}
+.session-row-button{width:100%;text-align:left;color:inherit;font:inherit;cursor:pointer}
+.session-row-button:active{transform:scale(.99)}
+.session-row-right{display:flex;align-items:center;gap:8px}
+.session-edit-chevron{font-size:22px;color:#B6A394;line-height:1}
+.session-edit-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:8px}
+.session-edit-grid label{margin:8px 0}
+.session-duration-preview{margin-top:10px;background:#F7ECDE;border-radius:15px;padding:13px;text-align:center;font-weight:850;font-variant-numeric:tabular-nums}
+.session-edit-hint{font-size:10px;margin:8px 0 14px}
+.session-modal-actions{display:grid;grid-template-columns:1fr 1.4fr;gap:9px}
+.session-modal-actions .danger-btn{width:100%}
+
+.long-timer-warning{margin:11px 0 2px;background:#FFF2D8;border:1px solid #EACB8B;border-radius:17px;padding:12px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.long-timer-warning strong{font-size:12px}
+.long-timer-warning p{font-size:10px;margin:3px 0 0;color:#8A6A3C}
+.warning-btn{border:0;background:#C88731;color:#FFF;border-radius:12px;padding:9px 12px;font-size:11px;font-weight:850;white-space:nowrap}
+
+/* v9 — 販售估價 */
+.seller-pricing-section{background:#FFF9F1;border:1px solid #EBD6B8;border-radius:22px;padding:16px}
+.seller-badge{background:#F0DFC6;color:#80613B;border-radius:999px;padding:6px 9px;font-size:10px;font-weight:850}
+.seller-input-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.seller-input-grid label{margin:4px 0}
+.seller-actual-price{grid-column:1/-1}
+.seller-result-card{background:#FFF;border:1px solid #E8DCCB;border-radius:18px;padding:14px;margin:12px 0}
+.seller-result-main{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;border-bottom:1px solid #EEE2D4;padding-bottom:11px}
+.seller-result-main span{font-size:11px;color:var(--muted)}
+.seller-result-main strong{font-size:25px;color:var(--accent)}
+.seller-breakdown{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:11px}
+.seller-breakdown div{background:#FAF5EE;border-radius:11px;padding:9px}
+.seller-breakdown span{display:block;font-size:9px;color:var(--muted)}
+.seller-breakdown b{display:block;font-size:12px;margin-top:3px}
+.seller-actual-result{margin-top:11px;background:#F5E8D6;border-radius:12px;padding:10px;font-size:11px;line-height:1.5;color:#655344}
+.seller-result-card>p{font-size:9px;margin:10px 0 0}
+
+/* v9 — storage */
+.storage-status-row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:12px}
+.storage-status-row span{color:var(--muted)}
+.storage-status-row strong{text-align:right}
+
+@media(max-width:430px){
+  .session-edit-grid{grid-template-columns:1fr 1fr}
+  .session-edit-grid label:first-child{grid-column:1/-1}
+  .seller-input-grid{grid-template-columns:1fr 1fr}
+}
+
+
+/* v10 — 售價透視 */
+.seller-investment-strip{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.seller-investment-strip>div{background:#FFF;border:1px solid #E8DCCB;border-radius:14px;padding:11px}
+.seller-investment-strip span{display:block;font-size:9px;color:var(--muted)}
+.seller-investment-strip strong{display:block;font-size:15px;margin-top:4px}
+
+.pricing-three-levels{display:grid;gap:8px;margin-top:14px}
+.pricing-level{background:#FFF;border:1px solid #E8DCCB;border-radius:17px;padding:13px;position:relative}
+.pricing-level span{display:block;font-size:10px;color:var(--muted);font-weight:800}
+.pricing-level strong{display:block;font-size:22px;margin-top:4px}
+.pricing-level small{display:block;color:var(--muted);font-size:9px;margin-top:4px;line-height:1.4}
+.pricing-level.cash-floor{border-left:4px solid #B7A58E}
+.pricing-level.target-price{border-left:4px solid #D8892B;background:#FFF9F0}
+.pricing-level.actual-price-view{border-left:4px solid #6F8064}
+
+.seller-reality-card{margin-top:11px;background:#3E332B;color:#FFF;border-radius:19px;padding:15px}
+.seller-hourly-main span{display:block;color:#D8C8BB;font-size:10px}
+.seller-hourly-main strong{display:block;font-size:25px;margin-top:3px}
+.seller-hourly-main small{display:block;color:#D8C8BB;font-size:9px;margin-top:2px}
+.seller-goal-row{display:grid;grid-template-columns:auto 1fr auto;gap:9px;align-items:center;margin-top:14px}
+.seller-goal-row>span{font-size:9px;color:#D8C8BB}
+.seller-goal-track{height:8px;background:#665449;border-radius:999px;overflow:hidden}
+.seller-goal-track i{display:block;height:100%;width:0;background:#E3A755;border-radius:999px;transition:width .2s}
+.seller-goal-row b{font-size:11px}
+.seller-price-gap{margin-top:12px;background:#59483D;border-radius:12px;padding:10px;color:#E9DED5;font-size:10px;line-height:1.5}
+
+.seller-breakdown-details{margin:11px 0}
+.seller-breakdown-details summary{cursor:pointer;font-size:11px;font-weight:800;color:var(--ink);padding:9px 2px}
+.seller-breakdown-details .seller-breakdown{margin-top:5px}
+
+.seller-philosophy-note{margin:10px 0 13px;padding:11px 12px;background:#F5E8D6;border-radius:14px;color:#655344}
+.seller-philosophy-note strong{font-size:11px}
+.seller-philosophy-note p{font-size:9px;line-height:1.5;margin:4px 0 0;color:#806C5B}
+
+/* 舊 v9 的主要建議售價區不再使用 */
+.seller-result-main{display:none}
+
+@media(max-width:430px){
+  .seller-investment-strip{grid-template-columns:1fr 1fr}
+}
