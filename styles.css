@@ -3117,3 +3117,41 @@ body.modal-open .modal-backdrop{
 .milestone-swipe-row .swipe-delete-action{
   box-shadow:inset 1px 0 0 rgba(255,255,255,.18);
 }
+
+
+/* =========================================================
+   v24 — Current Project persists after pause
+   ========================================================= */
+
+.product-active.paused-current{
+  border-color:#E0D6CB !important;
+  background:#FAF7F2 !important;
+}
+
+.product-active.paused-current .active-now-label{
+  color:#8D7C6D !important;
+}
+
+.product-active.paused-current .active-now-label i{
+  background:#B9AA9D !important;
+  animation:none !important;
+  box-shadow:none !important;
+}
+
+.product-active.paused-current .status-pill{
+  background:#ECE6DF !important;
+  color:#786A5F !important;
+}
+
+.product-active.paused-current .big-timer{
+  color:var(--yt-ink) !important;
+}
+
+.product-active.paused-current .primary-btn{
+  background:var(--yt-orange) !important;
+}
+
+/* 暫停時仍然維持首頁主作品卡的完整存在感，不變成 disabled 灰卡 */
+.product-active.paused-current .active-project-photo{
+  opacity:.92;
+}

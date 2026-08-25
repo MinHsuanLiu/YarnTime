@@ -26,13 +26,15 @@ let latestAlbumBlobs = [];
 let latestAlbumProjectId = null;
 let latestAlbumPreviewUrl = null;
 
-function defaultState(){ return {projects:[], activeProjectId:null}; }
+function defaultState(){ return {projects:[], activeProjectId:null, currentProjectId:null}; }
 function loadState(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
     const s = raw ? JSON.parse(raw) : defaultState();
     if(!s.projects) s.projects=[];
     if(!("activeProjectId" in s)) s.activeProjectId=null;
+    // v24: currentProjectId = 首頁目前主作品；activeProjectId = 真正正在計時的作品。
+    if(!("currentProjectId" in s)) s.currentProjectId=s.activeProjectId||null;
     s.projects.forEach(p=>{
       if(!Array.isArray(p.sessions)) p.sessions=[];
       if(!p.projectInfo || typeof p.projectInfo!=="object") p.projectInfo={};
@@ -44,6 +46,8 @@ function loadState(){
       if(!p.lastWorkedAt) p.lastWorkedAt=p.createdAt||Date.now();
       if(!("isCompleted" in p)) p.isCompleted=false;
     });
+    if(s.activeProjectId && !s.projects.some(p=>p.id===s.activeProjectId && !p.isCompleted)) s.activeProjectId=null;
+    if(s.currentProjectId && !s.projects.some(p=>p.id===s.currentProjectId && !p.isCompleted)) s.currentProjectId=null;
     return s;
   }catch(e){ return defaultState(); }
 }
@@ -1202,7 +1206,10 @@ function pauseProject(p){
   p.startedAt=null;
   p.isRunning=false;
   p.lastWorkedAt=endedAt;
+
+  // 停止「計時」但保留「目前作品」。
   if(state.activeProjectId===p.id) state.activeProjectId=null;
+  state.currentProjectId=p.id;
 }
 function startProject(id){
   const target=getProject(id);
@@ -1214,6 +1221,10 @@ function startProject(id){
     pauseProject(getProject(state.activeProjectId));
   }
   const p=getProject(id); if(!p) return;
+
+  // 一旦開始某件作品，它就成為首頁的「目前作品」。
+  state.currentProjectId=id;
+
   if(!p.isRunning){
     p.isRunning=true;
     p.startedAt=now();
@@ -1355,13 +1366,13 @@ function formatHomeTime(ms){
 }
 
 function renderHome(){
-  const running=state.activeProjectId?getProject(state.activeProjectId):null;
-  document.getElementById("homeNoActive").classList.toggle("hidden",!!(running&&running.isRunning));
+  const current=state.currentProjectId?getProject(state.currentProjectId):null;
+  document.getElementById("homeNoActive").classList.toggle("hidden",!!(current && !current.isCompleted));
 
+  // 目前作品已固定顯示在上方大卡，近期作品只放其他作品，避免重複。
   const recent=state.projects
-    .slice()
+    .filter(p=>p.id!==state.currentProjectId)
     .sort((a,b)=>{
-      // 正在製作的作品優先，其餘依最後製作時間排序。
       if(!!a.isRunning!==!!b.isRunning) return b.isRunning-a.isRunning;
       return (b.lastWorkedAt||b.completedAt||b.createdAt||0)-(a.lastWorkedAt||a.completedAt||a.createdAt||0);
     })
@@ -1477,8 +1488,9 @@ function switchMainView(view){
 
 function renderActive(){
   const card=document.getElementById("activeCard");
-  const p=state.activeProjectId?getProject(state.activeProjectId):null;
-  if(!p || !p.isRunning){
+  const p=state.currentProjectId?getProject(state.currentProjectId):null;
+
+  if(!p || p.isCompleted){
     card.classList.add("hidden");
     const img=document.getElementById("activeProjectPhoto");
     if(img){
@@ -1488,9 +1500,31 @@ function renderActive(){
     }
     return;
   }
+
   card.classList.remove("hidden");
+  card.classList.toggle("paused-current",!p.isRunning);
+
   document.getElementById("activeName").textContent=p.name;
-  document.getElementById("activeTimer").textContent=fmt(elapsedMs(p));
+
+  const stateLabel=document.getElementById("activeStateLabel");
+  const status=document.getElementById("activeStatusPill");
+  const timeLabel=document.getElementById("activeTimeLabel");
+  const action=document.getElementById("pauseActiveBtn");
+
+  if(p.isRunning){
+    stateLabel.innerHTML="<i></i> 正在製作";
+    status.textContent="計時中";
+    timeLabel.textContent="本次製作";
+    document.getElementById("activeTimer").textContent=fmt(currentSessionMs(p));
+    action.textContent="暫停";
+  }else{
+    stateLabel.innerHTML="<i></i> 目前作品";
+    status.textContent="已暫停";
+    timeLabel.textContent="作品總工時";
+    document.getElementById("activeTimer").textContent=fmt(elapsedMs(p));
+    action.textContent="繼續製作";
+  }
+
   renderActiveProjectPhoto(p);
 }
 
@@ -2598,11 +2632,19 @@ document.getElementById("longTimerPauseBtn").onclick=()=>{
 };
 
 document.getElementById("pauseActiveBtn").onclick=()=>{
-  if(state.activeProjectId) toggleProject(state.activeProjectId);
+  if(!state.currentProjectId) return;
+  const p=getProject(state.currentProjectId); if(!p) return;
+  if(p.isRunning){
+    pauseProject(p);
+    saveState();
+    renderAll();
+  }else{
+    startProject(p.id);
+  }
 };
 document.getElementById("lapActiveBtn").onclick=()=>{
-  if(!state.activeProjectId) return;
-  detailProjectId=state.activeProjectId;
+  if(!state.currentProjectId) return;
+  detailProjectId=state.currentProjectId;
   currentDetailTab="journal";
   renderDetail();
   openModal("detailModal");
@@ -2669,6 +2711,8 @@ document.getElementById("deleteProjectBtn").onclick=()=>{
   if(confirm(`確定刪除「${p.name}」嗎？這個動作無法復原。`)){
     if(state.activeProjectId===p.id) state.activeProjectId=null;
     state.projects=state.projects.filter(x=>x.id!==p.id);
+  if(state.currentProjectId===p.id) state.currentProjectId=null;
+  if(state.activeProjectId===p.id) state.activeProjectId=null;
     deleteProjectPhoto(p.id).catch(()=>{});
     Promise.all((p.laps||[]).map(l=>deleteLapPhoto(p.id,l.id).catch(()=>{})));
     saveState(); closeModal("detailModal"); detailProjectId=null; renderAll();
@@ -2708,6 +2752,8 @@ document.getElementById("toggleCompleteBtn").onclick=()=>{
     p.isCompleted=true;
     p.completedAt=now();
     p.lastWorkedAt=p.completedAt;
+    if(state.currentProjectId===p.id) state.currentProjectId=null;
+    if(state.activeProjectId===p.id) state.activeProjectId=null;
   }else{
     p.isCompleted=false;
     p.completedAt=null;
@@ -3153,7 +3199,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:23,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:24,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
