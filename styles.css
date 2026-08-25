@@ -3259,3 +3259,45 @@ body.modal-open .modal-backdrop{
     font-size:11px;
   }
 }
+
+
+/* =========================================================
+   v24.3 — iOS PWA swipe-delete fix
+   ========================================================= */
+
+/*
+  關鍵：
+  - pan-y 允許頁面正常上下捲動。
+  - 水平手勢不交給 Safari，讓 YarnTime 的 touchmove 接管。
+  v24.1 的 touch-action:auto 會讓 iPhone PWA 把左滑吃掉。
+*/
+.swipe-delete-row{
+  touch-action:pan-y !important;
+  -webkit-user-select:none !important;
+  user-select:none !important;
+  overscroll-behavior-x:contain;
+}
+
+.swipe-delete-content{
+  touch-action:pan-y !important;
+}
+
+.swipe-delete-action{
+  touch-action:manipulation !important;
+}
+
+.swipe-delete-row.swipe-dragging .swipe-delete-content{
+  transition:none !important;
+}
+
+/* 打開後紅色區域一定在可點層。 */
+.swipe-delete-row.swipe-open .swipe-delete-action{
+  opacity:1 !important;
+  visibility:visible !important;
+  pointer-events:auto !important;
+  z-index:5 !important;
+}
+
+.swipe-delete-row.swipe-open .swipe-delete-content{
+  z-index:2 !important;
+}

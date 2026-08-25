@@ -2437,106 +2437,138 @@ function setupSwipeDelete(container){
 
   const OPEN_X=-84;
   const MAX_X=-96;
-  const OPEN_THRESHOLD=-34;
-  let drag=null;
+  const OPEN_THRESHOLD=-38;
+  let gesture=null;
 
-  const finishDrag=(cancelled=false)=>{
-    if(!drag) return;
-    const {row,content,dx,wasOpen,pointerId}=drag;
-    drag=null;
-
-    try{ row.releasePointerCapture(pointerId); }catch(e){}
-
+  const settle=(row,content,open)=>{
     row.classList.remove("swipe-dragging");
-
-    if(cancelled){
-      if(wasOpen) openSwipeDeleteRow(row);
-      else closeSwipeRow(row);
-      return;
-    }
-
-    // 真正有水平拖曳時，阻擋 iOS/瀏覽器補送 click。
-    if(Math.abs(dx)>8) swipeClickBlockUntil=Date.now()+450;
-
-    if((!wasOpen && dx<=OPEN_THRESHOLD) || (wasOpen && dx<30)){
+    if(open){
       openSwipeDeleteRow(row);
     }else{
       closeSwipeRow(row);
     }
+    content.style.transition="transform .2s cubic-bezier(.2,.8,.2,1)";
   };
 
-  container.addEventListener("pointerdown",(e)=>{
-    if(e.pointerType==="mouse" && e.button!==0) return;
-
-    const row=e.target.closest(".swipe-delete-row");
-    if(!row) return;
-
-    // 已經露出的刪除按鈕本身要能直接點，不啟動拖曳。
-    if(e.target.closest(".swipe-delete-action")) return;
-
+  const begin=(row,x,y)=>{
     if(openSwipeRow && openSwipeRow!==row) closeSwipeRow(openSwipeRow);
 
     const content=row.querySelector(".swipe-delete-content");
-    if(!content) return;
+    if(!content) return null;
 
-    drag={
+    content.style.transition="none";
+    row.classList.add("swipe-dragging");
+
+    return {
       row,
       content,
-      pointerId:e.pointerId,
-      startX:e.clientX,
-      startY:e.clientY,
+      startX:x,
+      startY:y,
       dx:0,
       dy:0,
       axis:null,
       wasOpen:row.classList.contains("swipe-open")
     };
+  };
 
-    row.classList.add("swipe-dragging");
-    content.style.transition="none";
+  const move=(g,x,y)=>{
+    g.dx=x-g.startX;
+    g.dy=y-g.startY;
 
-    try{ row.setPointerCapture(e.pointerId); }catch(err){}
-  });
+    if(!g.axis && (Math.abs(g.dx)>7 || Math.abs(g.dy)>7)){
+      g.axis=Math.abs(g.dx)>Math.abs(g.dy)*1.15 ? "x" : "y";
+    }
+    if(g.axis!=="x") return false;
 
-  container.addEventListener("pointermove",(e)=>{
-    if(!drag || e.pointerId!==drag.pointerId) return;
+    const base=g.wasOpen ? OPEN_X : 0;
+    const target=Math.max(MAX_X,Math.min(0,base+g.dx));
 
-    drag.dx=e.clientX-drag.startX;
-    drag.dy=e.clientY-drag.startY;
+    g.content.style.transform=`translate3d(${target}px,0,0)`;
 
-    if(!drag.axis && (Math.abs(drag.dx)>7 || Math.abs(drag.dy)>7)){
-      drag.axis=Math.abs(drag.dx)>Math.abs(drag.dy)*1.15 ? "x" : "y";
+    if(target<-5) g.row.classList.add("swipe-revealing");
+    else g.row.classList.remove("swipe-revealing");
+
+    return true;
+  };
+
+  const finish=(cancelled=false)=>{
+    if(!gesture) return;
+    const g=gesture;
+    gesture=null;
+
+    if(g.axis==="x" && Math.abs(g.dx)>8){
+      swipeClickBlockUntil=Date.now()+480;
     }
 
-    if(drag.axis!=="x") return;
+    if(cancelled || g.axis!=="x"){
+      settle(g.row,g.content,g.wasOpen);
+      return;
+    }
 
-    // 水平拖曳由 App 接管；避免頁面本身吃掉這個手勢。
-    e.preventDefault();
+    const shouldOpen=(!g.wasOpen && g.dx<=OPEN_THRESHOLD) ||
+                     (g.wasOpen && g.dx<30);
 
-    const base=drag.wasOpen ? OPEN_X : 0;
-    let target=base+drag.dx;
-    target=Math.max(MAX_X,Math.min(0,target));
+    settle(g.row,g.content,shouldOpen);
+  };
 
-    drag.content.style.transform=`translate3d(${target}px,0,0)`;
+  // iPhone / iPad PWA: use Touch Events directly.
+  container.addEventListener("touchstart",(e)=>{
+    if(e.touches.length!==1) return;
 
-    if(target<-6){
-      drag.row.classList.add("swipe-revealing");
-    }else{
-      drag.row.classList.remove("swipe-revealing");
+    const row=e.target.closest(".swipe-delete-row");
+    if(!row) return;
+
+    // 已露出的紅色刪除按鈕必須保持可點。
+    if(e.target.closest(".swipe-delete-action")) return;
+
+    const t=e.touches[0];
+    gesture=begin(row,t.clientX,t.clientY);
+  },{passive:true});
+
+  container.addEventListener("touchmove",(e)=>{
+    if(!gesture || e.touches.length!==1) return;
+    const t=e.touches[0];
+
+    if(move(gesture,t.clientX,t.clientY)){
+      // 一旦確認是水平滑動，就由 YarnTime 接管，
+      // 不讓 Safari 把它當成頁面捲動或返回手勢。
+      e.preventDefault();
     }
   },{passive:false});
 
+  container.addEventListener("touchend",()=>finish(false),{passive:true});
+  container.addEventListener("touchcancel",()=>finish(true),{passive:true});
+
+  // Desktop / simulator fallback.
+  let pointerGesture=null;
+
+  container.addEventListener("pointerdown",(e)=>{
+    if(e.pointerType==="touch") return;
+    if(e.pointerType==="mouse" && e.button!==0) return;
+
+    const row=e.target.closest(".swipe-delete-row");
+    if(!row || e.target.closest(".swipe-delete-action")) return;
+
+    pointerGesture=begin(row,e.clientX,e.clientY);
+  });
+
+  container.addEventListener("pointermove",(e)=>{
+    if(!pointerGesture || e.pointerType==="touch") return;
+    if(move(pointerGesture,e.clientX,e.clientY)) e.preventDefault();
+  });
+
   container.addEventListener("pointerup",(e)=>{
-    if(!drag || e.pointerId!==drag.pointerId) return;
-    finishDrag(false);
+    if(!pointerGesture || e.pointerType==="touch") return;
+    gesture=pointerGesture;
+    pointerGesture=null;
+    finish(false);
   });
 
   container.addEventListener("pointercancel",(e)=>{
-    if(!drag || e.pointerId!==drag.pointerId) return;
-    finishDrag(true);
-  });
-
-  container.addEventListener("lostpointercapture",()=>{
-    if(drag) finishDrag(true);
+    if(!pointerGesture || e.pointerType==="touch") return;
+    gesture=pointerGesture;
+    pointerGesture=null;
+    finish(true);
   });
 }
 
@@ -3278,7 +3310,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:24.2,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:24.3,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
