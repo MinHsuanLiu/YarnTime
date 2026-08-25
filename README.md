@@ -1,4 +1,4 @@
-# YarnTime PWA v21.2 — Swipe Dismiss
+# YarnTime PWA v22 — Interaction Polish
 
 這是一個可安裝到 iPhone 主畫面的網頁 App（PWA）。
 
@@ -826,3 +826,11 @@ GitHub 覆蓋：index.html、app.js、styles.css、sw.js。
 - app.js
 - styles.css
 - sw.js
+
+## v22
+- 全 App 英文/數字統一 Nunito。
+- 點灰色背景只關當前視窗，同一手勢不再穿透到底下項目。
+- Session 左滑單筆刪除，編輯頁移除刪除按鈕。
+- 里程碑左滑單筆刪除，移除清除全部按鈕。
+- 首頁近期作品新增快速開始/暫停。
+- v21.2 下拉關閉保留。

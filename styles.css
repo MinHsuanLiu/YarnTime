@@ -2963,3 +2963,20 @@ body.settings-open{
 .menu-sheet{
   transform:none;
 }
+
+/* v22 interaction polish */
+html,body,button,input,textarea,select,option,.app-shell,.modal-sheet,.overlay-view{
+  font-family:"Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,system-ui,sans-serif!important;
+}
+.swipe-delete-row{position:relative;overflow:hidden;border-bottom:1px solid var(--yt-line);}
+.swipe-delete-action{position:absolute;right:0;top:0;bottom:0;width:82px;border:0;background:#B95749;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;}
+.swipe-delete-content{position:relative;z-index:1;width:100%;background:var(--yt-paper-2);will-change:transform;}
+.session-swipe-row .session-row{border-bottom:0!important;}
+.milestone-swipe-row{border-bottom:0;margin-bottom:4px;}
+.milestone-swipe-row .timeline-item{margin-bottom:0!important;background:var(--yt-paper-2);}
+.session-modal-actions-single{grid-template-columns:1fr!important;}
+.home-project-card-wrap{display:grid;grid-template-columns:minmax(0,1fr) auto;border:1px solid #E4D7CA;background:#FFFDF9;border-radius:17px;overflow:hidden;box-shadow:0 5px 14px rgba(62,51,43,.035);}
+.home-project-card-wrap .home-project-card{border:0!important;border-radius:0!important;box-shadow:none!important;background:transparent!important;}
+.home-quick-start{width:64px;border:0;border-left:1px solid #E8DCCF;background:#F7EBDD;color:var(--yt-orange-deep);font-size:10px;font-weight:850;}
+.home-quick-start.running{background:var(--yt-orange);color:#fff;}
+@media(max-width:430px){.home-quick-start{width:58px;}}

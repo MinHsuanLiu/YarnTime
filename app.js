@@ -1372,18 +1372,21 @@ function renderHome(){
   empty.classList.toggle("hidden",recent.length>0);
 
   list.innerHTML=recent.map(p=>`
-    <button class="home-project-card" data-home-project="${p.id}">
-      <div class="home-project-photo">
-        <img class="hidden" data-photo-project="${p.id}" alt="${escapeHTML(p.name)}">
-        <span class="project-fallback">${craftMarkSVG(p.type)}</span>
-      </div>
-      <div class="home-project-copy">
-        <span class="home-project-type">${p.isRunning?"正在製作 · ":""}${escapeHTML(p.type)}${p.isCompleted?" · 已完成":""}</span>
-        <strong>${escapeHTML(p.name)}</strong>
-        <small>${fmtHuman(elapsedMs(p))} · ${p.sessions?.length||0} 次製作</small>
-      </div>
-      <span class="home-project-chevron">›</span>
-    </button>
+    <article class="home-project-card-wrap">
+      <button class="home-project-card" data-home-project="${p.id}">
+        <div class="home-project-photo">
+          <img class="hidden" data-photo-project="${p.id}" alt="${escapeHTML(p.name)}">
+          <span class="project-fallback">${craftMarkSVG(p.type)}</span>
+        </div>
+        <div class="home-project-copy">
+          <span class="home-project-type">${p.isRunning?"正在製作 · ":""}${escapeHTML(p.type)}${p.isCompleted?" · 已完成":""}</span>
+          <strong>${escapeHTML(p.name)}</strong>
+          <small>${fmtHuman(elapsedMs(p))} · ${p.sessions?.length||0} 次製作</small>
+        </div>
+        <span class="home-project-chevron">›</span>
+      </button>
+      ${p.isCompleted?"":`<button class="home-quick-start ${p.isRunning?"running":""}" data-home-toggle="${p.id}">${p.isRunning?"暫停":"開始"}</button>`}
+    </article>
   `).join("");
   applyProjectPhotos();
 
@@ -1660,16 +1663,19 @@ function renderDetail(){
   const sessionVisible=sessionVisibleByProject.get(p.id)||40;
   const visibleSessions=sessions.slice(0,sessionVisible);
   sessionList.innerHTML=visibleSessions.length?visibleSessions.map((s,index)=>`
-    <button class="session-row session-row-button" data-session-id="${s.id}">
-      <div class="session-date">
-        <strong>${formatSessionDate(s.startedAt)}</strong>
-        <small>${formatSessionClock(s.startedAt)} – ${formatSessionClock(s.endedAt)}</small>
-      </div>
-      <div class="session-row-right">
-        <div class="session-duration">${fmtHuman(s.durationMs)}</div>
-        <span class="session-edit-chevron">›</span>
-      </div>
-    </button>
+    <div class="swipe-delete-row session-swipe-row">
+      <button class="swipe-delete-action" data-delete-session="${s.id}">刪除</button>
+      <button class="session-row session-row-button swipe-delete-content" data-session-id="${s.id}">
+        <div class="session-date">
+          <strong>${formatSessionDate(s.startedAt)}</strong>
+          <small>${formatSessionClock(s.startedAt)} – ${formatSessionClock(s.endedAt)}</small>
+        </div>
+        <div class="session-row-right">
+          <div class="session-duration">${fmtHuman(s.durationMs)}</div>
+          <span class="session-edit-chevron">›</span>
+        </div>
+      </button>
+    </div>
   `).join(""):`<div class="session-empty">第一次按「開始 → 暫停」後，這裡就會自動出現紀錄。</div>`;
 
   const moreSessionsBtn=document.getElementById("loadMoreSessionsBtn");
@@ -1731,8 +1737,10 @@ function renderDetail(){
   const visibleLaps=laps.slice(0,lapVisible);
 
   lapList.innerHTML=visibleLaps.length?visibleLaps.map(l=>`
-    <article class="timeline-item">
-      <div class="timeline-marker">
+    <div class="swipe-delete-row milestone-swipe-row">
+      <button class="swipe-delete-action" data-delete-lap="${l.id}">刪除</button>
+      <article class="timeline-item swipe-delete-content">
+        <div class="timeline-marker">
         <span class="yarn-knot"><b>${l.index}</b></span>
         <i></i>
       </div>
@@ -1751,7 +1759,8 @@ function renderDetail(){
           <img class="timeline-photo hidden" data-lap-photo-project="${p.id}" data-lap-photo-id="${l.id}" alt="進度照片">
         </div>
       </div>
-    </article>
+      </article>
+    </div>
   `).join(""):`<div class="timeline-empty"><span class="timeline-empty-knot" aria-hidden="true"></span><p>還沒有里程碑。<br>做到值得紀念的地方再記就好。</p></div>`;
 
   const moreLapsBtn=document.getElementById("loadMoreLapsBtn");
@@ -1988,7 +1997,6 @@ function openSessionModal(projectId,sessionId=null){
   document.getElementById("sessionDateInput").value=localDateInputValue(reference);
   document.getElementById("sessionStartInput").value=localTimeInputValue(reference);
   document.getElementById("sessionEndInput").value=localTimeInputValue(endRef);
-  document.getElementById("deleteSessionBtn").classList.toggle("hidden",!s);
   updateSessionDurationPreview();
   openModal("sessionModal");
 }
@@ -2099,10 +2107,17 @@ document.querySelectorAll("[data-close]").forEach(b=>{
 // 點到白色 sheet 裡面不會誤關。
 document.querySelectorAll(".modal-backdrop").forEach(backdrop=>{
   backdrop.addEventListener("pointerdown",(e)=>{
-    if(e.target!==backdrop) return;
-    if(modalStack.at(-1)!==backdrop.id) return;
-    closeTopModal();
-  });
+    if(e.target!==backdrop||modalStack.at(-1)!==backdrop.id)return;
+    e.preventDefault();e.stopPropagation();
+  },{passive:false});
+  backdrop.addEventListener("pointerup",(e)=>{
+    if(e.target!==backdrop||modalStack.at(-1)!==backdrop.id)return;
+    e.preventDefault();e.stopPropagation();closeTopModal();
+  },{passive:false});
+  backdrop.addEventListener("click",(e)=>{
+    if(e.target!==backdrop)return;
+    e.preventDefault();e.stopPropagation();
+  },true);
 });
 
 // v21.2 — Bottom sheet 下拉關閉
@@ -2238,6 +2253,14 @@ document.getElementById("loadMoreLapsBtn").onclick=()=>{
   renderDetail();
 };
 
+document.getElementById("lapList").onclick=(e)=>{
+  const del=e.target.closest("[data-delete-lap]");
+  if(del&&detailProjectId){
+    e.preventDefault();e.stopPropagation();
+    deleteLapById(detailProjectId,del.dataset.deleteLap);
+  }
+};
+
 document.getElementById("addLapFromSectionBtn").onclick=()=>{
   if(detailProjectId) beginLap(detailProjectId);
 };
@@ -2245,9 +2268,74 @@ document.getElementById("addLapFromSectionBtn").onclick=()=>{
 document.getElementById("addSessionBtn").onclick=()=>{
   if(detailProjectId) openSessionModal(detailProjectId,null);
 };
+
+let openSwipeRow=null;
+
+function closeSwipeRow(row=openSwipeRow){
+  if(!row) return;
+  row.classList.remove("swipe-open");
+  const c=row.querySelector(".swipe-delete-content");
+  if(c){c.style.transform="";c.style.transition="";}
+  if(openSwipeRow===row) openSwipeRow=null;
+}
+function openSwipeDeleteRow(row){
+  if(openSwipeRow && openSwipeRow!==row) closeSwipeRow(openSwipeRow);
+  openSwipeRow=row; row.classList.add("swipe-open");
+  const c=row.querySelector(".swipe-delete-content");
+  if(c){c.style.transition="transform .18s ease-out";c.style.transform="translate3d(-82px,0,0)";}
+}
+function setupSwipeDelete(container){
+  if(!container) return;
+  let tr=null;
+  container.addEventListener("touchstart",e=>{
+    const row=e.target.closest(".swipe-delete-row");
+    if(!row||e.touches.length!==1) return;
+    if(openSwipeRow&&openSwipeRow!==row) closeSwipeRow(openSwipeRow);
+    const t=e.touches[0];
+    tr={row,sx:t.clientX,sy:t.clientY,dx:0,dy:0,h:false,d:false};
+    const c=row.querySelector(".swipe-delete-content"); if(c)c.style.transition="none";
+  },{passive:true});
+  container.addEventListener("touchmove",e=>{
+    if(!tr||e.touches.length!==1)return;
+    const t=e.touches[0]; tr.dx=t.clientX-tr.sx; tr.dy=t.clientY-tr.sy;
+    if(!tr.d&&(Math.abs(tr.dx)>8||Math.abs(tr.dy)>8)){tr.d=true;tr.h=Math.abs(tr.dx)>Math.abs(tr.dy)*1.2;}
+    if(!tr.h)return;
+    const c=tr.row.querySelector(".swipe-delete-content"); if(!c)return;
+    const base=tr.row.classList.contains("swipe-open")?-82:0;
+    c.style.transform=`translate3d(${Math.max(-92,Math.min(0,base+tr.dx))}px,0,0)`;
+  },{passive:true});
+  container.addEventListener("touchend",()=>{
+    if(!tr)return;
+    const {row,dx,h}=tr; tr=null; if(!h)return;
+    const open=row.classList.contains("swipe-open");
+    if((!open&&dx<-38)||(open&&dx<20)) openSwipeDeleteRow(row); else closeSwipeRow(row);
+  },{passive:true});
+}
+function deleteSessionById(projectId,sessionId){
+  const p=getProject(projectId); if(!p)return;
+  const base=sessionLegacyBaseMs(p);
+  p.sessions=(p.sessions||[]).filter(x=>x.id!==sessionId);
+  recalcAccumulatedFromSessions(p,base);
+  saveState(); closeSwipeRow(); renderAll();
+}
+async function deleteLapById(projectId,lapId){
+  const p=getProject(projectId); if(!p)return;
+  p.laps=(p.laps||[]).filter(x=>x.id!==lapId);
+  try{await deleteLapPhoto(projectId,lapId);}catch(e){}
+  latestResumeBlob=null;latestResumeProjectId=null;latestAlbumBlobs=[];resumeMediaItems=[];
+  saveState(); closeSwipeRow(); renderAll();
+}
+
 document.getElementById("sessionList").onclick=(e)=>{
+  const del=e.target.closest("[data-delete-session]");
+  if(del&&detailProjectId){
+    e.preventDefault();e.stopPropagation();
+    deleteSessionById(detailProjectId,del.dataset.deleteSession);return;
+  }
   const row=e.target.closest("[data-session-id]");
-  if(!row || !detailProjectId) return;
+  if(!row||!detailProjectId)return;
+  const swipe=row.closest(".swipe-delete-row");
+  if(swipe?.classList.contains("swipe-open")){closeSwipeRow(swipe);return;}
   openSessionModal(detailProjectId,row.dataset.sessionId);
 };
 document.getElementById("saveSessionBtn").onclick=()=>{
@@ -2281,20 +2369,7 @@ document.getElementById("saveSessionBtn").onclick=()=>{
   closeModal("sessionModal");
   renderAll();
 };
-document.getElementById("deleteSessionBtn").onclick=()=>{
-  const p=getProject(detailProjectId); if(!p || !editingSessionId) return;
-  const s=(p.sessions||[]).find(x=>x.id===editingSessionId);
-  if(!s) return;
-  if(confirm(`確定刪除這筆 ${fmtHuman(s.durationMs)} 的製作紀錄嗎？`)){
-    const legacyBase=sessionLegacyBaseMs(p);
-    p.sessions=p.sessions.filter(x=>x.id!==editingSessionId);
-    recalcAccumulatedFromSessions(p,legacyBase);
-    editingSessionId=null;
-    saveState();
-    closeModal("sessionModal");
-    renderAll();
-  }
-};
+
 
 document.getElementById("editProjectInfoBtn").onclick=()=>{
   const p=getProject(detailProjectId); if(!p) return;
@@ -2424,17 +2499,7 @@ document.getElementById("saveLapBtn").onclick=async()=>{
   closeModal("lapModal");
   renderAll();
 };
-document.getElementById("clearLapsBtn").onclick=()=>{
-  const p=getProject(detailProjectId); if(!p) return;
-  if(confirm("確定要清除這個作品的所有里程碑嗎？")){
-    // 清除後從「目前累積時間」重新當作下一段的起點。
-    p.lapBaselineMs=elapsedMs(p);
-    const oldLaps=[...(p.laps||[])];
-    p.laps=[];
-    Promise.all(oldLaps.map(l=>deleteLapPhoto(p.id,l.id).catch(()=>{})));
-    saveState(); renderAll();
-  }
-};
+
 document.getElementById("deleteProjectBtn").onclick=()=>{
   const p=getProject(detailProjectId); if(!p) return;
   if(confirm(`確定刪除「${p.name}」嗎？這個動作無法復原。`)){
@@ -2875,12 +2940,16 @@ document.getElementById("viewAllProjectsBtn").onclick=()=>switchMainView("projec
 document.getElementById("homeStartProjectBtn").onclick=()=>switchMainView("projects");
 
 document.getElementById("homeRecentList").onclick=(e)=>{
+  const toggle=e.target.closest("[data-home-toggle]");
+  if(toggle){
+    e.preventDefault();e.stopPropagation();
+    const p=getProject(toggle.dataset.homeToggle);if(!p)return;
+    if(p.isRunning) pauseProject(p); else startProject(p);
+    saveState();renderAll();return;
+  }
   const card=e.target.closest("[data-home-project]");
-  if(!card) return;
-  detailProjectId=card.dataset.homeProject;
-  currentDetailTab="journal";
-  renderDetail();
-  openModal("detailModal");
+  if(!card)return;
+  detailProjectId=card.dataset.homeProject;currentDetailTab="journal";renderDetail();openModal("detailModal");
 };
 
 document.getElementById("recapHubList").onclick=(e)=>{
@@ -2913,7 +2982,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:21.2,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:22,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
