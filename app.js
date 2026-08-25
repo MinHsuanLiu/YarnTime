@@ -1384,22 +1384,24 @@ function renderHome(){
     homeStartBtn.dataset.emptyMode=hasAnyProject?"select":"add";
   }
 
-  // 近期作品包含目前作品；目前正在製作的作品優先，其餘依最後製作時間排序。
+  // 目前作品已固定顯示在上方大卡，近期作品只放其他作品，避免重複。
   const recent=state.projects
-    .slice()
+    .filter(p=>p.id!==state.currentProjectId)
     .sort((a,b)=>{
       if(!!a.isRunning!==!!b.isRunning) return b.isRunning-a.isRunning;
-      if(a.id===state.currentProjectId && b.id!==state.currentProjectId) return -1;
-      if(b.id===state.currentProjectId && a.id!==state.currentProjectId) return 1;
       return (b.lastWorkedAt||b.completedAt||b.createdAt||0)-(a.lastWorkedAt||a.completedAt||a.createdAt||0);
     })
     .slice(0,3);
 
   const list=document.getElementById("homeRecentList");
   const empty=document.getElementById("homeRecentEmpty");
-  // 「新增第一件作品」只在整個 App 完全沒有作品時顯示。
-  // 只要已有任何作品，就永遠隱藏這個首次使用空狀態。
-  empty.classList.toggle("hidden",state.projects.length>0);
+  const quickAdd=document.getElementById("homeQuickAddProjectBtn");
+  const hasProjects=state.projects.length>0;
+
+  // 0 件作品：顯示大空狀態「新增第一件作品」。
+  // 已有作品：改顯示較輕的「新增新作品」快捷按鈕。
+  empty.classList.toggle("hidden",hasProjects);
+  quickAdd.classList.toggle("hidden",!hasProjects);
 
   list.innerHTML=recent.map(p=>`
     <article class="home-project-card-wrap">
@@ -3285,6 +3287,10 @@ document.getElementById("viewAllProjectsBtn").onclick=()=>switchMainView("projec
 document.getElementById("homeRecentEmpty").onclick=()=>{
   document.getElementById("addProjectBtn").click();
 };
+
+document.getElementById("homeQuickAddProjectBtn").onclick=()=>{
+  document.getElementById("addProjectBtn").click();
+};
 document.getElementById("homeStartProjectBtn").onclick=()=>{
   const btn=document.getElementById("homeStartProjectBtn");
   if(btn.dataset.emptyMode==="add"){
@@ -3344,7 +3350,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:24.8,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:24.7,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);

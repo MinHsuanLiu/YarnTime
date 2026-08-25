@@ -3444,11 +3444,46 @@ body.modal-open .modal-backdrop{
 
 
 /* =========================================================
-   v24.8 — Empty state hidden CSS fix
+   v24.6 — Home empty-state visibility fix
    ========================================================= */
 
-/* v24.4 的 .home-empty-add 使用 display:flex !important，
-   會蓋過通用 .hidden。只要 JS 判定 hidden，就必須真的消失。 */
+/* v24.4 的 display:flex !important 會蓋掉 .hidden。
+   這條必須更具體，確保已有作品時完全不顯示「新增第一件作品」。 */
 .home-empty-add.hidden{
+  display:none !important;
+}
+
+
+/* =========================================================
+   v24.7 — Home quick add project
+   ========================================================= */
+
+.home-quick-add-project{
+  width:100%;
+  min-height:44px;
+  margin-top:10px;
+  border:1px dashed #D9C6B5;
+  border-radius:14px;
+  background:transparent;
+  color:var(--yt-orange-deep);
+  font-size:10px;
+  font-weight:800;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+}
+
+.home-quick-add-project span{
+  font-size:17px;
+  line-height:1;
+  font-weight:500;
+}
+
+.home-quick-add-project:active{
+  background:#F5EBE0;
+}
+
+.home-quick-add-project.hidden{
   display:none !important;
 }
