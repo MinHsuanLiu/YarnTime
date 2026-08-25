@@ -1453,20 +1453,6 @@ function renderRecapHub(){
   applyRecapHubPhotos();
 }
 
-let appToastTimer=null;
-function showAppToast(message){
-  const toast=document.getElementById("appToast");
-  if(!toast) return;
-  toast.textContent=message;
-  toast.classList.remove("hidden");
-  requestAnimationFrame(()=>toast.classList.add("show"));
-  clearTimeout(appToastTimer);
-  appToastTimer=setTimeout(()=>{
-    toast.classList.remove("show");
-    setTimeout(()=>toast.classList.add("hidden"),180);
-  },1600);
-}
-
 function switchMainView(view){
   currentMainView=view;
   const map={home:"homeView",projects:"projectsView",stats:"statsView",recap:"recapHubView"};
@@ -2091,21 +2077,7 @@ document.getElementById("clearProjectPhotoBtn").onclick=()=>{
 document.getElementById("projectList").onclick=(e)=>{
   const btn=e.target.closest("button"); if(!btn) return;
   const id=btn.dataset.id;
-
-  if(btn.dataset.action==="toggle"){
-    const p=getProject(id); if(!p) return;
-    const wasRunning=!!p.isRunning;
-
-    toggleProject(id);
-
-    // 只有「開始 / 切換製作」才回首頁；暫停則留在作品頁。
-    if(!wasRunning){
-      switchMainView("home");
-      showAppToast(`已開始製作｜${p.name}`);
-    }
-    return;
-  }
-
+  if(btn.dataset.action==="toggle") toggleProject(id);
   if(btn.dataset.action==="detail"){
     detailProjectId=id;
     currentDetailTab="journal";
@@ -2132,6 +2104,105 @@ document.querySelectorAll(".modal-backdrop").forEach(backdrop=>{
     closeTopModal();
   });
 });
+
+// v21.2 — Bottom sheet 下拉關閉
+// 僅套用底部 sheet；左側 menu-sheet 不使用這個手勢。
+(function setupSwipeToDismiss(){
+  const DISMISS_DISTANCE=105;
+  const FAST_SWIPE_VELOCITY=0.55; // px/ms
+  const HANDLE_ZONE=110;          // 只允許從 sheet 上方區域開始拖，避免和內容捲動衝突
+
+  document.querySelectorAll(".modal-backdrop").forEach(backdrop=>{
+    const sheet=backdrop.querySelector(".modal-sheet");
+    if(!sheet || sheet.classList.contains("menu-sheet")) return;
+
+    let tracking=false;
+    let startY=0;
+    let lastY=0;
+    let startTime=0;
+    let currentDy=0;
+
+    const resetSheet=()=>{
+      sheet.classList.remove("sheet-dragging");
+      sheet.style.transform="";
+      sheet.style.transition="";
+      backdrop.style.setProperty("--drag-opacity","1");
+    };
+
+    sheet.addEventListener("touchstart",(e)=>{
+      if(modalStack.at(-1)!==backdrop.id) return;
+      if(e.touches.length!==1) return;
+
+      const rect=sheet.getBoundingClientRect();
+      const y=e.touches[0].clientY;
+
+      // 只從頂部把手/標題附近開始；避免使用者滑內容時誤關閉。
+      if(y-rect.top>HANDLE_ZONE) return;
+
+      tracking=true;
+      startY=y;
+      lastY=y;
+      startTime=performance.now();
+      currentDy=0;
+      sheet.classList.add("sheet-dragging");
+      sheet.style.transition="none";
+    },{passive:true});
+
+    sheet.addEventListener("touchmove",(e)=>{
+      if(!tracking || e.touches.length!==1) return;
+      const y=e.touches[0].clientY;
+      const dy=Math.max(0,y-startY);
+      lastY=y;
+      currentDy=dy;
+
+      if(dy>0){
+        // 拖越遠，稍微增加阻尼，避免整張 sheet 飛太快。
+        const translated=dy>220 ? 220+(dy-220)*0.35 : dy;
+        sheet.style.transform=`translate3d(0,${translated}px,0)`;
+
+        const opacity=Math.max(.45,1-dy/520);
+        backdrop.style.setProperty("--drag-opacity",String(opacity));
+      }
+    },{passive:true});
+
+    sheet.addEventListener("touchend",()=>{
+      if(!tracking) return;
+      tracking=false;
+
+      const elapsed=Math.max(1,performance.now()-startTime);
+      const velocity=currentDy/elapsed;
+      const shouldDismiss=currentDy>=DISMISS_DISTANCE ||
+        (currentDy>=45 && velocity>=FAST_SWIPE_VELOCITY);
+
+      sheet.classList.remove("sheet-dragging");
+
+      if(shouldDismiss && modalStack.at(-1)===backdrop.id){
+        sheet.style.transition="transform .18s ease-out";
+        sheet.style.transform="translate3d(0,105%,0)";
+        backdrop.style.setProperty("--drag-opacity","0");
+
+        setTimeout(()=>{
+          closeTopModal();
+          resetSheet();
+        },170);
+      }else{
+        sheet.style.transition="transform .24s cubic-bezier(.2,.8,.2,1)";
+        sheet.style.transform="translate3d(0,0,0)";
+        backdrop.style.setProperty("--drag-opacity","1");
+
+        setTimeout(resetSheet,250);
+      }
+    },{passive:true});
+
+    sheet.addEventListener("touchcancel",()=>{
+      if(!tracking) return;
+      tracking=false;
+      sheet.style.transition="transform .24s cubic-bezier(.2,.8,.2,1)";
+      sheet.style.transform="translate3d(0,0,0)";
+      setTimeout(resetSheet,250);
+    },{passive:true});
+  });
+})();
 
 // 電腦測試時 Esc 也視為「返回上一層」。
 document.addEventListener("keydown",(e)=>{

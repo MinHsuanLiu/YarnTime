@@ -2923,30 +2923,43 @@ body.settings-open{
 
 
 /* =========================================================
-   v21.2 — 開始製作後回首頁
+   v21.2 — Bottom Sheet Swipe-to-Dismiss
    ========================================================= */
-.app-toast{
-  position:fixed;
-  left:50%;
-  bottom:calc(94px + env(safe-area-inset-bottom));
-  z-index:190;
-  max-width:calc(100vw - 40px);
-  padding:10px 14px;
-  border-radius:999px;
-  background:rgba(58,48,41,.94);
-  color:#fff;
-  font-size:10px;
-  font-weight:750;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  box-shadow:0 8px 24px rgba(38,29,23,.16);
-  pointer-events:none;
-  opacity:0;
-  transform:translate(-50%,10px);
-  transition:opacity .18s ease,transform .18s ease;
+
+.modal-backdrop{
+  --drag-opacity:1;
 }
-.app-toast.show{
-  opacity:1;
-  transform:translate(-50%,0);
+
+/* 保留原 backdrop 色，但拖曳時跟著淡出 */
+.modal-backdrop:not(.hidden){
+  opacity:var(--drag-opacity);
+  transition:opacity .18s ease-out;
+}
+
+/* 真正拖曳時不做 transition，跟手感會比較自然 */
+.modal-sheet.sheet-dragging{
+  transition:none !important;
+  will-change:transform;
+}
+
+/* 把手稍微加寬，讓「可拖」更直覺，但不做得太顯眼 */
+.modal-sheet:not(.menu-sheet) .sheet-handle{
+  width:48px;
+  height:5px;
+  border-radius:999px;
+  background:#D6C8BC;
+  margin-left:auto;
+  margin-right:auto;
+  touch-action:none;
+}
+
+/* 下拉時避免文字被意外反白 */
+.modal-sheet.sheet-dragging{
+  user-select:none;
+  -webkit-user-select:none;
+}
+
+/* 左側抽屜不吃垂直下拉手勢 */
+.menu-sheet{
+  transform:none;
 }
