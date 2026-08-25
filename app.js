@@ -1375,7 +1375,14 @@ function formatHomeTime(ms){
 
 function renderHome(){
   const current=state.currentProjectId?getProject(state.currentProjectId):null;
+  const hasAnyProject=state.projects.length>0;
   document.getElementById("homeNoActive").classList.toggle("hidden",!!(current && !current.isCompleted));
+
+  const homeStartBtn=document.getElementById("homeStartProjectBtn");
+  if(homeStartBtn){
+    homeStartBtn.textContent=hasAnyProject?"選擇作品":"新增作品";
+    homeStartBtn.dataset.emptyMode=hasAnyProject?"select":"add";
+  }
 
   // 目前作品已固定顯示在上方大卡，近期作品只放其他作品，避免重複。
   const recent=state.projects
@@ -1719,18 +1726,20 @@ function renderDetail(){
   const sessionVisible=sessionVisibleByProject.get(p.id)||40;
   const visibleSessions=sessions.slice(0,sessionVisible);
   sessionList.innerHTML=visibleSessions.length?visibleSessions.map((s,index)=>`
-    <div class="swipe-delete-row session-swipe-row">
-      <button type="button" class="swipe-delete-action" data-delete-session="${s.id}">刪除</button>
-      <button class="session-row session-row-button swipe-delete-content" data-session-id="${s.id}">
-        <div class="session-date">
-          <strong>${formatSessionDate(s.startedAt)}</strong>
-          <small>${formatSessionClock(s.startedAt)} – ${formatSessionClock(s.endedAt)}</small>
-        </div>
-        <div class="session-row-right">
-          <div class="session-duration">${fmtHuman(s.durationMs)}</div>
-          <span class="session-edit-chevron">›</span>
-        </div>
-      </button>
+    <div class="native-swipe-row session-swipe-row" data-native-swipe="session">
+      <div class="native-swipe-track">
+        <button class="session-row session-row-button native-swipe-content" data-session-id="${s.id}">
+          <div class="session-date">
+            <strong>${formatSessionDate(s.startedAt)}</strong>
+            <small>${formatSessionClock(s.startedAt)} – ${formatSessionClock(s.endedAt)}</small>
+          </div>
+          <div class="session-row-right">
+            <div class="session-duration">${fmtHuman(s.durationMs)}</div>
+            <span class="session-edit-chevron">›</span>
+          </div>
+        </button>
+        <button type="button" class="native-swipe-delete" data-delete-session="${s.id}">刪除</button>
+      </div>
     </div>
   `).join(""):`<div class="session-empty">第一次按「開始 → 暫停」後，這裡就會自動出現紀錄。</div>`;
 
@@ -1793,9 +1802,9 @@ function renderDetail(){
   const visibleLaps=laps.slice(0,lapVisible);
 
   lapList.innerHTML=visibleLaps.length?visibleLaps.map(l=>`
-    <div class="swipe-delete-row milestone-swipe-row">
-      <button type="button" class="swipe-delete-action" data-delete-lap="${l.id}">刪除</button>
-      <article class="timeline-item swipe-delete-content">
+    <div class="native-swipe-row milestone-swipe-row" data-native-swipe="lap">
+      <div class="native-swipe-track">
+        <article class="timeline-item native-swipe-content">
         <div class="timeline-marker">
         <span class="yarn-knot"><b>${l.index}</b></span>
         <i></i>
@@ -1816,6 +1825,8 @@ function renderDetail(){
         </div>
       </div>
       </article>
+        <button type="button" class="native-swipe-delete" data-delete-lap="${l.id}">刪除</button>
+      </div>
     </div>
   `).join(""):`<div class="timeline-empty"><span class="timeline-empty-knot" aria-hidden="true"></span><p>還沒有里程碑。<br>做到值得紀念的地方再記就好。</p></div>`;
 
@@ -2367,12 +2378,6 @@ document.getElementById("lapList").onclick=(e)=>{
     e.preventDefault();
     e.stopPropagation();
     openDeleteConfirm("lap",del.dataset.deleteLap);
-    return;
-  }
-
-  if(Date.now()<swipeClickBlockUntil){
-    e.preventDefault();
-    e.stopPropagation();
   }
 };
 
@@ -2380,6 +2385,7 @@ document.getElementById("lapList").onclick=(e)=>{
 document.getElementById("deleteConfirmCancelBtn").onclick=()=>{
   pendingDelete=null;
   closeModal("deleteConfirmModal");
+  closeAllNativeSwipeRows();
 };
 
 document.getElementById("deleteConfirmOkBtn").onclick=async()=>{
@@ -2391,7 +2397,7 @@ document.getElementById("deleteConfirmOkBtn").onclick=async()=>{
   if(action.kind==="lap") await deleteLapById(action.projectId,action.id);
 
   closeModal("deleteConfirmModal");
-  closeSwipeRow();
+  closeAllNativeSwipeRows();
   renderAll();
 };
 
@@ -2572,6 +2578,15 @@ function setupSwipeDelete(container){
   });
 }
 
+
+function closeAllNativeSwipeRows(except=null){
+  document.querySelectorAll(".native-swipe-row").forEach(row=>{
+    if(row!==except && row.scrollLeft>0){
+      row.scrollTo({left:0,behavior:"smooth"});
+    }
+  });
+}
+
 function openDeleteConfirm(kind,id){
   const p=getProject(detailProjectId);
   if(!p) return;
@@ -2621,6 +2636,16 @@ async function deleteLapById(projectId,lapId){
   saveState();
 }
 
+["sessionList","lapList"].forEach(id=>{
+  const container=document.getElementById(id);
+  if(!container) return;
+
+  container.addEventListener("touchstart",(e)=>{
+    const row=e.target.closest(".native-swipe-row");
+    if(row) closeAllNativeSwipeRows(row);
+  },{passive:true});
+});
+
 document.getElementById("sessionList").onclick=(e)=>{
   const del=e.target.closest("[data-delete-session]");
   if(del && detailProjectId){
@@ -2630,18 +2655,13 @@ document.getElementById("sessionList").onclick=(e)=>{
     return;
   }
 
-  if(Date.now()<swipeClickBlockUntil){
-    e.preventDefault();
-    e.stopPropagation();
-    return;
-  }
-
   const row=e.target.closest("[data-session-id]");
   if(!row || !detailProjectId) return;
 
-  const swipe=row.closest(".swipe-delete-row");
-  if(swipe?.classList.contains("swipe-open")){
-    closeSwipeRow(swipe);
+  // 若該列目前已橫向滑開，第一次點內容先收回，不直接進編輯。
+  const scroller=row.closest(".native-swipe-row");
+  if(scroller && scroller.scrollLeft>20){
+    scroller.scrollTo({left:0,behavior:"smooth"});
     return;
   }
 
@@ -3258,7 +3278,17 @@ document.getElementById("menuBackupBtn").onclick=()=>{
 };
 
 document.getElementById("viewAllProjectsBtn").onclick=()=>switchMainView("projects");
-document.getElementById("homeStartProjectBtn").onclick=()=>switchMainView("projects");
+document.getElementById("homeRecentEmpty").onclick=()=>{
+  document.getElementById("addProjectBtn").click();
+};
+document.getElementById("homeStartProjectBtn").onclick=()=>{
+  const btn=document.getElementById("homeStartProjectBtn");
+  if(btn.dataset.emptyMode==="add"){
+    document.getElementById("addProjectBtn").click();
+  }else{
+    switchMainView("projects");
+  }
+};
 
 document.getElementById("homeRecentList").onclick=(e)=>{
   const toggle=e.target.closest("[data-home-toggle]");
@@ -3310,7 +3340,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:24.3,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:24.5,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
