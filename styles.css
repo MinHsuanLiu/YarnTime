@@ -4248,3 +4248,114 @@ body.modal-open .modal-backdrop{
 #conclusionStagesItem.hidden{
   display:none !important;
 }
+
+
+/* =========================================================
+   v30 — Long-session floating check-in
+   ========================================================= */
+.long-session-checkin{
+  position:fixed;
+  left:50%;
+  bottom:88px;
+  transform:translateX(-50%);
+  z-index:120;
+  width:min(calc(100% - 28px),420px);
+  padding:13px;
+  border:1px solid #E0D2C4;
+  border-radius:18px;
+  background:rgba(255,250,244,.97);
+  box-shadow:0 12px 34px rgba(74,52,36,.18);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+
+.long-session-checkin.hidden{
+  display:none !important;
+}
+
+.long-session-checkin-close{
+  position:absolute;
+  top:7px;
+  right:8px;
+  width:30px;
+  height:30px;
+  display:grid;
+  place-items:center;
+  border:0;
+  background:transparent;
+  color:#9C8979;
+  font-size:20px;
+  line-height:1;
+}
+
+.long-session-checkin-top{
+  display:flex;
+  align-items:flex-start;
+  gap:9px;
+  padding-right:24px;
+}
+
+.long-session-yarn{
+  flex:0 0 auto;
+  font-size:20px;
+  line-height:1;
+}
+
+.long-session-checkin-top strong{
+  display:block;
+  font-size:11px;
+  color:#5F4D40;
+}
+
+.long-session-checkin-top p{
+  margin:3px 0 0;
+  font-size:8.5px;
+  color:#8E7A69;
+}
+
+.long-session-checkin-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin-top:11px;
+}
+
+.long-session-checkin-actions button{
+  min-height:40px;
+  padding:0 10px;
+  border-radius:12px;
+  font-size:9px;
+}
+
+.long-session-fix-btn{
+  width:100%;
+  margin-top:6px;
+  min-height:30px;
+  border:0;
+  background:transparent;
+  color:#A35D50;
+  font-size:8px;
+  font-weight:850;
+}
+
+.settings-inline-field{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-top:10px;
+}
+
+.settings-inline-field select{
+  width:auto;
+  min-width:110px;
+  margin:0;
+}
+
+@media(max-width:390px){
+  .long-session-checkin{
+    bottom:82px;
+    width:calc(100% - 20px);
+    border-radius:16px;
+  }
+}

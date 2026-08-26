@@ -270,7 +270,7 @@
         </button>
       </div>
 
-      <div class="menu-version">YarnTime v29</div>
+      <div class="menu-version">YarnTime v30</div>
     </div>
   </div>
 
@@ -892,6 +892,23 @@
     </div>
   </div>
 
+  <!-- Long-session floating check-in -->
+  <aside id="longSessionCheckin" class="long-session-checkin hidden" aria-live="polite">
+    <button id="longSessionDismissBtn" class="long-session-checkin-close" type="button" aria-label="稍後再說">×</button>
+    <div class="long-session-checkin-top">
+      <span class="long-session-yarn" aria-hidden="true">🧶</span>
+      <div>
+        <strong id="longSessionCheckinTitle">已經連續製作 3 小時</strong>
+        <p id="longSessionCheckinText">還在繼續嗎？</p>
+      </div>
+    </div>
+    <div class="long-session-checkin-actions">
+      <button id="longSessionContinueBtn" class="primary-btn" type="button">繼續製作</button>
+      <button id="longSessionPauseBtn" class="secondary-btn" type="button">暫停</button>
+    </div>
+    <button id="longSessionFixBtn" class="long-session-fix-btn" type="button">其實早就停了</button>
+  </aside>
+
   <!-- Settings view -->
   <div id="settingsView" class="overlay-view hidden">
     <div class="overlay-head settings-overlay-head">
@@ -910,15 +927,26 @@
     </div>
     <div class="settings-card">
       <h3>資料儲存狀態</h3>
-      <div class="storage-status-row"><span>版本</span><strong>YarnTime v29</strong></div>
+      <div class="storage-status-row"><span>版本</span><strong>YarnTime v30</strong></div>
       <div class="storage-status-row"><span>已使用空間</span><strong id="storageUsageText">計算中…</strong></div>
       <div class="storage-status-row"><span>持久儲存</span><strong id="storagePersistText">檢查中…</strong></div>
       <button id="requestPersistBtn" class="secondary-btn wide">提高資料保留機率</button>
       <p>瀏覽器仍可能在特殊情況下清理網站資料，因此重要作品建議定期匯出備份。</p>
     </div>
     <div class="settings-card">
+      <h3>長時間製作提醒</h3>
+      <p>避免忘記暫停。預設連續製作 3 小時時提醒一次；選擇繼續後，下一次會隔 2 小時再提醒。</p>
+      <label class="settings-inline-field">第一次提醒
+        <select id="longSessionReminderSelect">
+          <option value="3">3 小時</option>
+          <option value="4">4 小時</option>
+          <option value="0">關閉提醒</option>
+        </select>
+      </label>
+    </div>
+    <div class="settings-card">
       <h3>關於背景計時</h3>
-      <p>iPhone 網頁版不會持續在背景「跑秒」，而是記住開始時間；你切去別的 App、鎖螢幕後再回來，累積時間仍會正確。</p>
+      <p>iPhone 網頁版不會持續在背景「跑秒」，而是記住開始時間；你切去別的 App、鎖螢幕後再回來，累積時間仍會正確。若回來時已超過提醒時間，YarnTime 會立即補顯示提醒。</p>
     </div>
   </div>
 

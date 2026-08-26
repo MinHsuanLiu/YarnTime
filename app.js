@@ -28,12 +28,14 @@ let latestAlbumBlobs = [];
 let latestAlbumProjectId = null;
 let latestAlbumPreviewUrl = null;
 
-function defaultState(){ return {projects:[], activeProjectId:null, currentProjectId:null}; }
+function defaultState(){ return {projects:[], activeProjectId:null, currentProjectId:null, settings:{longSessionHours:3}}; }
 function loadState(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
     const s = raw ? JSON.parse(raw) : defaultState();
     if(!s.projects) s.projects=[];
+    if(!s.settings || typeof s.settings!=="object") s.settings={};
+    if(![0,3,4].includes(Number(s.settings.longSessionHours))) s.settings.longSessionHours=3;
     if(!("activeProjectId" in s)) s.activeProjectId=null;
     // v24: currentProjectId = 首頁目前主作品；activeProjectId = 真正正在計時的作品。
     if(!("currentProjectId" in s)) s.currentProjectId=s.activeProjectId||null;
@@ -66,6 +68,8 @@ function loadState(){
       if(!Array.isArray(p.resumePrefs.selectedKeys)) p.resumePrefs.selectedKeys=[];
       if(!p.lastWorkedAt) p.lastWorkedAt=p.createdAt||Date.now();
       if(!("isCompleted" in p)) p.isCompleted=false;
+      if(!("longSessionNextCheckAt" in p)) p.longSessionNextCheckAt=null;
+      if(!("longSessionReminderCount" in p)) p.longSessionReminderCount=0;
     });
     if(s.activeProjectId && !s.projects.some(p=>p.id===s.activeProjectId && !p.isCompleted)) s.activeProjectId=null;
     if(s.currentProjectId && !s.projects.some(p=>p.id===s.currentProjectId && !p.isCompleted)) s.currentProjectId=null;
@@ -79,6 +83,65 @@ function uuid(){
 }
 function now(){ return Date.now(); }
 function getProject(id){ return state.projects.find(p=>p.id===id); }
+
+function longSessionReminderHours(){
+  return Number(state.settings?.longSessionHours ?? 3);
+}
+function longSessionFirstDelayMs(){
+  const hours=longSessionReminderHours();
+  return hours>0 ? hours*3600000 : 0;
+}
+function scheduleFirstLongSessionCheck(p){
+  const delay=longSessionFirstDelayMs();
+  p.longSessionReminderCount=0;
+  p.longSessionNextCheckAt=delay>0 && p.startedAt ? p.startedAt+delay : null;
+}
+function scheduleNextLongSessionCheck(p){
+  p.longSessionReminderCount=(p.longSessionReminderCount||0)+1;
+  p.longSessionNextCheckAt=now()+2*3600000;
+}
+function clearLongSessionCheck(p){
+  if(!p) return;
+  p.longSessionNextCheckAt=null;
+  p.longSessionReminderCount=0;
+}
+function hideLongSessionCheckin(){
+  document.getElementById("longSessionCheckin")?.classList.add("hidden");
+  document.getElementById("longSessionCheckin")?.removeAttribute("data-project-id");
+}
+function showLongSessionCheckin(p){
+  if(!p || !p.isRunning) return;
+  const hours=Math.max(1,Math.floor(currentSessionMs(p)/3600000));
+  const first=longSessionReminderHours();
+  document.getElementById("longSessionCheckinTitle").textContent=
+    p.longSessionReminderCount>0 ? `已經連續製作 ${hours} 小時` : `已經連續製作 ${first} 小時`;
+  document.getElementById("longSessionCheckinText").textContent=`「${p.name}」還在繼續嗎？`;
+  const card=document.getElementById("longSessionCheckin");
+  card.dataset.projectId=p.id;
+  card.classList.remove("hidden");
+}
+function checkLongSessionReminder(){
+  const p=state.activeProjectId?getProject(state.activeProjectId):null;
+  if(!p || !p.isRunning){
+    hideLongSessionCheckin();
+    return;
+  }
+  const reminderHours=longSessionReminderHours();
+  if(reminderHours<=0){
+    hideLongSessionCheckin();
+    return;
+  }
+
+  if(!p.longSessionNextCheckAt){
+    scheduleFirstLongSessionCheck(p);
+    saveState();
+  }
+
+  if(p.longSessionNextCheckAt && now()>=p.longSessionNextCheckAt){
+    showLongSessionCheckin(p);
+  }
+}
+
 function elapsedMs(p){
   const running = p.isRunning && p.startedAt ? (now()-p.startedAt) : 0;
   return (p.accumulatedMs||0) + running;
@@ -1268,6 +1331,8 @@ function pauseProject(p){
   p.startedAt=null;
   p.isRunning=false;
   p.lastWorkedAt=endedAt;
+  clearLongSessionCheck(p);
+  hideLongSessionCheckin();
 
   // 停止「計時」但保留「目前作品」。
   if(state.activeProjectId===p.id) state.activeProjectId=null;
@@ -1292,9 +1357,11 @@ function startProject(id){
     p.startedAt=now();
     p.lastWorkedAt=now();
     p.activeProgressStart=captureProgressSnapshot(p);
+    scheduleFirstLongSessionCheck(p);
     state.activeProjectId=id;
   }
   saveState(); renderAll();
+setTimeout(checkLongSessionReminder,200);
 }
 function toggleProject(id){
   const p=getProject(id); if(!p) return;
@@ -1309,7 +1376,9 @@ function createProject(name,type,note,projectInfo={}){
     createdAt:now(),lastWorkedAt:now(),completedAt:null,isCompleted:false,
     accumulatedMs:0,isRunning:false,startedAt:null,
     sessions:[],
-    laps:[],lapBaselineMs:0
+    laps:[],lapBaselineMs:0,
+    longSessionNextCheckAt:null,
+    longSessionReminderCount:0
   };
   state.projects.unshift(p); saveState(); return p;
 }
@@ -1867,7 +1936,8 @@ function renderDetail(){
 
   const currentMs=currentSessionMs(p);
   const longWarning=document.getElementById("longTimerWarning");
-  const showLong=p.isRunning && currentMs>=4*3600000;
+  const reminderHours=longSessionReminderHours();
+  const showLong=p.isRunning && reminderHours>0 && currentMs>=reminderHours*3600000;
   longWarning.classList.toggle("hidden",!showLong);
   if(showLong){
     document.getElementById("longTimerWarningText").textContent=`本次已計時 ${fmtHuman(currentMs)}。如果其實早就停工，可以先暫停，再點製作紀錄修正。`;
@@ -2117,7 +2187,8 @@ function updateDetailLiveOnly(){
   const warning=document.getElementById("longTimerWarning");
   if(warning){
     const currentMs=currentSessionMs(p);
-    const showLong=p.isRunning && currentMs>=4*3600000;
+    const reminderHours=longSessionReminderHours();
+    const showLong=p.isRunning && reminderHours>0 && currentMs>=reminderHours*3600000;
     warning.classList.toggle("hidden",!showLong);
     if(showLong){
       const text=document.getElementById("longTimerWarningText");
@@ -3383,6 +3454,52 @@ document.getElementById("longTimerPauseBtn").onclick=()=>{
   if(last) setTimeout(()=>openSessionModal(p.id,last.id),120);
 };
 
+
+document.getElementById("longSessionContinueBtn").onclick=()=>{
+  const card=document.getElementById("longSessionCheckin");
+  const p=getProject(card.dataset.projectId);
+  if(!p || !p.isRunning){ hideLongSessionCheckin(); return; }
+  scheduleNextLongSessionCheck(p);
+  saveState();
+  hideLongSessionCheckin();
+};
+
+document.getElementById("longSessionPauseBtn").onclick=()=>{
+  const card=document.getElementById("longSessionCheckin");
+  const p=getProject(card.dataset.projectId);
+  if(!p || !p.isRunning){ hideLongSessionCheckin(); return; }
+  pauseProject(p);
+  saveState();
+  renderAll();
+};
+
+document.getElementById("longSessionFixBtn").onclick=()=>{
+  const card=document.getElementById("longSessionCheckin");
+  const p=getProject(card.dataset.projectId);
+  if(!p || !p.isRunning){ hideLongSessionCheckin(); return; }
+
+  detailProjectId=p.id;
+  pauseProject(p);
+  saveState();
+  renderAll();
+
+  const latest=latestSessionRecord(p);
+  if(latest){
+    setTimeout(()=>openSessionModal(p.id,latest.id),100);
+  }
+};
+
+document.getElementById("longSessionDismissBtn").onclick=()=>{
+  const card=document.getElementById("longSessionCheckin");
+  const p=getProject(card.dataset.projectId);
+  if(p?.isRunning){
+    // 關掉小卡只延後 30 分鐘，不當作「我確定還在製作」
+    p.longSessionNextCheckAt=now()+30*60000;
+    saveState();
+  }
+  hideLongSessionCheckin();
+};
+
 document.getElementById("pauseActiveBtn").onclick=()=>{
   if(!state.currentProjectId) return;
   const p=getProject(state.currentProjectId); if(!p) return;
@@ -3878,12 +3995,33 @@ document.querySelectorAll(".nav-item").forEach(btn=>{
 function openSettings(){
   document.getElementById("settingsView").classList.remove("hidden");
   document.body.classList.add("settings-open");
+  document.getElementById("longSessionReminderSelect").value=String(longSessionReminderHours());
   refreshStorageStatus();
 }
 function closeSettings(){
   document.getElementById("settingsView").classList.add("hidden");
   document.body.classList.remove("settings-open");
 }
+
+document.getElementById("longSessionReminderSelect").onchange=()=>{
+  const value=Number(document.getElementById("longSessionReminderSelect").value);
+  state.settings=state.settings||{};
+  state.settings.longSessionHours=[0,3,4].includes(value)?value:3;
+
+  const p=state.activeProjectId?getProject(state.activeProjectId):null;
+  if(p?.isRunning){
+    if(state.settings.longSessionHours===0){
+      clearLongSessionCheck(p);
+      hideLongSessionCheckin();
+    }else{
+      p.longSessionNextCheckAt=p.startedAt+state.settings.longSessionHours*3600000;
+      p.longSessionReminderCount=0;
+      if(now()>=p.longSessionNextCheckAt) showLongSessionCheckin(p);
+      else hideLongSessionCheckin();
+    }
+  }
+  saveState();
+};
 
 document.getElementById("settingsBtn").onclick=openSettings;
 document.getElementById("settingsCloseBtn").onclick=closeSettings;
@@ -3977,7 +4115,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:29,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:30,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
@@ -4049,13 +4187,15 @@ setInterval(()=>{
   // v18.1: 不再每秒重畫整個作品詳情，避免輸入框、捲動位置被重設。
   updateDetailLiveOnly();
   updateHomeActiveLiveOnly();
+  checkLongSessionReminder();
 },1000);
 
 document.addEventListener("visibilitychange", ()=>{
   if(!document.hidden){
     renderAll();
+    checkLongSessionReminder();
     const p=state.activeProjectId?getProject(state.activeProjectId):null;
-    if(p && currentSessionMs(p)>=4*3600000){
+    if(p && longSessionReminderHours()>0 && currentSessionMs(p)>=longSessionReminderHours()*3600000){
       console.warn("YarnTime: long running session",p.name,fmtHuman(currentSessionMs(p)));
     }
   }
