@@ -245,7 +245,7 @@
         </button>
       </div>
 
-      <div class="menu-version">YarnTime v24.9</div>
+      <div class="menu-version">YarnTime v25</div>
     </div>
   </div>
 
@@ -262,6 +262,82 @@
       <div class="delete-confirm-actions">
         <button id="deleteConfirmCancelBtn" class="secondary-btn">取消</button>
         <button id="deleteConfirmOkBtn" class="danger-btn">刪除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Completion flow -->
+  <div id="completionFlowModal" class="modal-backdrop hidden">
+    <div class="modal-sheet completion-flow-sheet">
+      <div class="sheet-handle"></div>
+
+      <div id="completionFormStep">
+        <div class="sheet-head">
+          <div>
+            <div class="eyebrow">FINISH MAKE</div>
+            <h2>完成這件作品</h2>
+          </div>
+          <button class="text-btn" data-close="completionFlowModal">關閉</button>
+        </div>
+
+        <div class="completion-flow-summary">
+          <div><span>作品</span><strong id="completionFlowName">—</strong></div>
+          <div><span>總工時</span><strong id="completionFlowTotal">—</strong></div>
+          <div><span>製作次數</span><strong id="completionFlowSessions">—</strong></div>
+          <div><span>製作期間</span><strong id="completionFlowDuration">—</strong></div>
+        </div>
+
+        <label class="completion-date-field">完成日期
+          <input id="completionDateInput" type="date" />
+        </label>
+
+        <div class="completion-photo-field">
+          <div>
+            <strong>完成照</strong>
+            <small>可以略過，也可以用最後成品照更新作品封面。</small>
+          </div>
+          <button id="completionPhotoBtn" class="secondary-btn" type="button">選擇完成照</button>
+          <input id="completionPhotoInput" class="hidden-file-input" type="file" accept="image/*" />
+          <div id="completionPhotoPreview" class="completion-photo-preview hidden"></div>
+          <button id="clearCompletionPhotoBtn" class="text-btn hidden" type="button">移除這張照片</button>
+        </div>
+
+        <div class="completion-flow-actions">
+          <button class="secondary-btn" data-close="completionFlowModal">取消</button>
+          <button id="confirmCompleteBtn" class="primary-btn">完成作品</button>
+        </div>
+      </div>
+
+      <div id="completionSuccessStep" class="completion-success hidden">
+        <div class="completion-success-mark">✓</div>
+        <div class="eyebrow">FINISHED</div>
+        <h2>完成啦！</h2>
+        <h3 id="completionSuccessName">—</h3>
+        <div class="completion-success-stats">
+          <div><span>總工時</span><strong id="completionSuccessTotal">—</strong></div>
+          <div><span>製作次數</span><strong id="completionSuccessSessions">—</strong></div>
+          <div><span>製作期間</span><strong id="completionSuccessDuration">—</strong></div>
+        </div>
+        <div class="completion-flow-actions">
+          <button id="completionDoneBtn" class="secondary-btn">完成</button>
+          <button id="completionReviewBtn" class="primary-btn">看看作品回顧</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Long session reminder -->
+  <div id="longSessionReminderModal" class="modal-backdrop hidden">
+    <div class="modal-sheet compact-sheet long-session-sheet">
+      <div class="sheet-handle"></div>
+      <div class="long-session-icon">⏱</div>
+      <div class="eyebrow">YARNTIME CHECK</div>
+      <h2>已經連續製作 3 小時了</h2>
+      <p id="longSessionReminderText">如果你還在做，可以繼續；如果其實早就休息了，可以現在暫停或修正這筆時間。</p>
+      <div class="long-session-actions">
+        <button id="longSessionContinueBtn" class="secondary-btn">繼續計時</button>
+        <button id="longSessionPauseBtn" class="primary-btn">現在暫停</button>
+        <button id="longSessionFixBtn" class="text-btn long-session-fix-btn">暫停並修正時間</button>
       </div>
     </div>
   </div>
@@ -433,7 +509,23 @@
         <button class="detail-tab" data-detail-tab="more">更多</button>
       </nav>
 
-      <div class="subsection session-section detail-panel detail-panel-journal">
+      <div id="journalModeBar" class="journal-mode-bar detail-panel detail-panel-journal">
+        <button class="journal-mode-btn active" data-journal-mode="all">全部</button>
+        <button class="journal-mode-btn" data-journal-mode="sessions">製作紀錄</button>
+        <button class="journal-mode-btn" data-journal-mode="laps">里程碑</button>
+      </div>
+
+      <div id="journalAllSection" class="subsection journal-all-section detail-panel detail-panel-journal">
+        <div class="subsection-head">
+          <div>
+            <h3>全部動態</h3>
+            <p>把每次製作與重要進度放在同一條時間線。</p>
+          </div>
+        </div>
+        <div id="journalAllList" class="journal-all-list"></div>
+      </div>
+
+      <div id="sessionSection" class="subsection session-section detail-panel detail-panel-journal">
         <div class="subsection-head">
           <div>
             <h3>製作紀錄</h3>
@@ -449,7 +541,7 @@
         <button id="loadMoreSessionsBtn" class="load-more-btn hidden">顯示更多製作紀錄</button>
       </div>
 
-      <div class="subsection journal-section detail-panel detail-panel-journal">
+      <div id="lapSection" class="subsection journal-section detail-panel detail-panel-journal">
         <div class="subsection-head">
           <div>
             <h3>里程碑</h3>
@@ -801,7 +893,7 @@
     </div>
     <div class="settings-card">
       <h3>資料儲存狀態</h3>
-      <div class="storage-status-row"><span>版本</span><strong>YarnTime v24.9</strong></div>
+      <div class="storage-status-row"><span>版本</span><strong>YarnTime v25</strong></div>
       <div class="storage-status-row"><span>已使用空間</span><strong id="storageUsageText">計算中…</strong></div>
       <div class="storage-status-row"><span>持久儲存</span><strong id="storagePersistText">檢查中…</strong></div>
       <button id="requestPersistBtn" class="secondary-btn wide">提高資料保留機率</button>
