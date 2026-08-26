@@ -3883,3 +3883,172 @@ body.modal-open .modal-backdrop{
   .home-progress-actions{grid-template-columns:38px 38px;}
   .home-progress-actions button{width:38px;height:38px;}
 }
+
+
+/* =========================================================
+   v27 — Stage completion + history
+   ========================================================= */
+
+.home-progress-done-badge{
+  display:inline-flex;
+  align-items:center;
+  min-height:20px;
+  padding:0 7px;
+  border-radius:999px;
+  background:#E8EFE5;
+  color:#5E7556;
+  font-size:8px;
+  font-weight:900;
+  white-space:nowrap;
+}
+
+.home-progress-done-badge.hidden{
+  display:none !important;
+}
+
+.home-progress-actions.hidden{
+  display:none !important;
+}
+
+.home-progress-actions button:disabled,
+.progress-counter-btn:disabled{
+  opacity:.35;
+  pointer-events:none;
+}
+
+.home-progress-counter:has(.home-progress-done-badge:not(.hidden)){
+  border-color:#CBDAC6;
+  background:#F2F6EF;
+}
+
+.home-progress-counter:has(.home-progress-done-badge:not(.hidden)) .home-progress-copy strong{
+  color:#61775A;
+}
+
+.home-progress-counter.all-stages-complete{
+  border-color:#CBDAC6;
+  background:#F2F6EF;
+}
+
+#progressCounterCaption{
+  min-height:16px;
+}
+
+.stage-complete-btn.target-reached{
+  border-color:#B8CBAF;
+  background:#EDF4E9;
+  color:#577050;
+}
+
+.completed-stages-history{
+  margin-top:15px;
+  padding-top:13px;
+  border-top:1px solid #E8DCCF;
+}
+
+.completed-stages-history.hidden{
+  display:none !important;
+}
+
+.completed-stages-history-head{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:8px;
+}
+
+.completed-stages-history-head>div>span{
+  display:block;
+  font-size:7px;
+  letter-spacing:.12em;
+  color:#AE9782;
+}
+
+.completed-stages-history-head>div>strong{
+  display:block;
+  margin-top:2px;
+  font-size:11px;
+}
+
+.completed-stages-history-head>small{
+  font-size:8px;
+  color:#A18C7A;
+}
+
+.completed-stages-list{
+  display:grid;
+  gap:7px;
+}
+
+.completed-stage-row{
+  display:grid;
+  grid-template-columns:27px minmax(0,1fr) auto;
+  align-items:center;
+  gap:9px;
+  padding:9px 10px;
+  border:1px solid #DFE7DB;
+  border-radius:12px;
+  background:#F7FAF5;
+}
+
+.completed-stage-check{
+  width:27px;
+  height:27px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  background:#E4EEE0;
+  color:#647A5C;
+  font-size:12px;
+  font-weight:900;
+}
+
+.completed-stage-copy{
+  min-width:0;
+}
+
+.completed-stage-copy strong{
+  display:block;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+  font-size:9.5px;
+}
+
+.completed-stage-copy small{
+  display:block;
+  margin-top:2px;
+  color:#8B7B6F;
+  font-size:7.5px;
+}
+
+.completed-stage-status{
+  padding:3px 6px;
+  border-radius:999px;
+  background:#E8EFE5;
+  color:#62765B;
+  font-size:7px;
+  font-weight:850;
+}
+
+
+/* =========================================================
+   v28 — Target reached is not stage complete
+   ========================================================= */
+.home-progress-done-badge{
+  background:#F1EAD9;
+  color:#8A7047;
+}
+.home-progress-counter:has(.home-progress-done-badge:not(.hidden)){
+  border-color:#E0D4BA;
+  background:#F9F4E8;
+}
+.home-progress-counter:has(.home-progress-done-badge:not(.hidden)) .home-progress-copy strong{
+  color:#8A7047;
+}
+.stage-complete-btn.target-reached{
+  border-color:#D8C79F;
+  background:#F8F0DE;
+  color:#846A3E;
+}

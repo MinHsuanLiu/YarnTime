@@ -2120,7 +2120,8 @@ function makeStage(data={}){
     target:Number(data.target)>0?Math.floor(Number(data.target)):null,
     step:[1,2,4,5,10].includes(Number(data.step))?Number(data.step):1,
     value:Number(data.value)>=0?Math.floor(Number(data.value)):0,
-    completed:!!data.completed
+    completed:!!data.completed,
+    completedAt:Number(data.completedAt)>0?Number(data.completedAt):null
   };
 }
 function normalizedProgressPlan(p){
@@ -2140,6 +2141,16 @@ function activeProgressStage(p){
 function progressStageUnitText(stage){
   return stage?.unit==="自訂"?(stage.customUnit||"項"):(stage?.unit||"圈");
 }
+function isProgressStageReached(stage){
+  return !!(stage && stage.target && stage.value>=stage.target);
+}
+function formatStageCompletedAt(ts){
+  if(!ts) return "已完成";
+  return new Date(ts).toLocaleString("zh-TW",{
+    month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"
+  });
+}
+
 function saveProgressPlan(p,plan){
   p.projectInfo=p.projectInfo||{};
   p.projectInfo.progressPlan={enabled:!!plan.enabled,activeStageId:plan.activeStageId||null,stages:(plan.stages||[]).map(makeStage)};
@@ -2195,66 +2206,202 @@ function updateProjectCounterConfigVisibility(){
     renderProjectStageEditor();
   }
 }
+function renderCompletedStagesHistory(plan){
+  const box=document.getElementById("completedStagesHistory");
+  const list=document.getElementById("completedStagesList");
+  const completed=plan.stages.filter(s=>s.completed);
+
+  box.classList.toggle("hidden",completed.length===0);
+  if(!completed.length){
+    list.innerHTML="";
+    return;
+  }
+
+  document.getElementById("completedStagesCount").textContent=`${completed.length} 段`;
+  list.innerHTML=completed
+    .slice()
+    .sort((a,b)=>(b.completedAt||0)-(a.completedAt||0))
+    .map(stage=>{
+      const unit=progressStageUnitText(stage);
+      const progress=stage.target
+        ? `${stage.value} / ${stage.target} ${unit}`
+        : `${stage.value} ${unit}`;
+      return `
+        <article class="completed-stage-row">
+          <span class="completed-stage-check">✓</span>
+          <div class="completed-stage-copy">
+            <strong>${escapeHTML(stage.name)}</strong>
+            <small>${escapeHTML(progress)} · ${escapeHTML(formatStageCompletedAt(stage.completedAt))}</small>
+          </div>
+          <span class="completed-stage-status">完成</span>
+        </article>`;
+    }).join("");
+}
+
 function renderProgressCounter(p){
   const section=document.getElementById("progressCounterSection"); if(!section) return;
   const {plan,stage,index}=activeProgressStage(p);
   section.classList.toggle("hidden",!plan.enabled);
   if(!plan.enabled) return;
+
+  renderCompletedStagesHistory(plan);
+
   const done=document.getElementById("progressAllStagesDone");
   const card=document.querySelector("#progressCounterSection .progress-counter-card");
   const foot=document.querySelector("#progressCounterSection .progress-counter-foot");
   const milestoneBtn=document.getElementById("progressCounterMilestoneBtn");
+  const completeBtn=document.getElementById("progressStageCompleteBtn");
+  const plusBtn=document.getElementById("progressCounterPlusBtn");
+
   if(!stage){
-    card.classList.add("hidden"); foot.classList.add("hidden"); milestoneBtn.classList.add("hidden"); done.classList.remove("hidden");
+    card.classList.add("hidden");
+    foot.classList.add("hidden");
+    milestoneBtn.classList.add("hidden");
+    done.classList.remove("hidden");
     document.getElementById("progressStageName").textContent="全部完成";
     document.getElementById("progressStagePosition").textContent=`共 ${plan.stages.length} 段`;
     document.getElementById("progressCounterHint").textContent="所有設定的進度段落都完成了。";
     return;
   }
-  card.classList.remove("hidden"); foot.classList.remove("hidden"); milestoneBtn.classList.remove("hidden"); done.classList.add("hidden");
+
+  card.classList.remove("hidden");
+  foot.classList.remove("hidden");
+  milestoneBtn.classList.remove("hidden");
+  done.classList.add("hidden");
+
   const unit=progressStageUnitText(stage);
+  const reached=isProgressStageReached(stage);
+
   document.getElementById("progressStageName").textContent=stage.name;
   document.getElementById("progressStagePosition").textContent=`第 ${index+1} / ${plan.stages.length} 段`;
   document.getElementById("progressCounterValue").textContent=stage.value;
   document.getElementById("progressCounterUnit").textContent=unit;
   document.getElementById("progressCounterStepSelect").value=String(stage.step);
+  document.getElementById("progressCounterCaption").textContent=reached?"✓ 已達目標":"目前進度";
+
+  plusBtn.disabled=false;
+  completeBtn.textContent="完成這一段 →";
+  completeBtn.classList.toggle("target-reached",reached);
+
   const wrap=document.getElementById("progressCounterTargetWrap");
   if(stage.target){
     const pct=Math.max(0,Math.min(100,Math.round(stage.value/stage.target*100)));
     wrap.classList.remove("hidden");
-    document.getElementById("progressCounterTargetText").textContent=`${stage.value} / ${stage.target} ${unit} · ${pct}%`;
+    document.getElementById("progressCounterTargetText").textContent=
+      reached ? `${stage.value} / ${stage.target} ${unit} · 已達目標`
+              : `${stage.value} / ${stage.target} ${unit} · ${pct}%`;
     document.getElementById("progressCounterBarFill").style.width=`${pct}%`;
   }else{
     wrap.classList.add("hidden");
     document.getElementById("progressCounterBarFill").style.width="0%";
   }
-  document.getElementById("progressCounterHint").textContent=stage.target?`${stage.name} · 目標 ${stage.target} ${unit}`:`${stage.name} · 目前 ${stage.value} ${unit}`;
+
+  document.getElementById("progressCounterHint").textContent=
+    reached ? `${stage.name} 已達成原本目標，仍可繼續增加；只有按「完成這一段」才會正式結束。`
+            : stage.target ? `${stage.name} · 目標 ${stage.target} ${unit}`
+                           : `${stage.name} · 目前 ${stage.value} ${unit}`;
 }
+
 function renderHomeProgressCounter(p){
   const section=document.getElementById("homeProgressCounter"); if(!section) return;
   const {plan,stage}=activeProgressStage(p);
-  const show=!!(p&&!p.isCompleted&&plan.enabled&&stage);
+  const show=!!(p && !p.isCompleted && plan.enabled && (stage || plan.stages.length));
   section.classList.toggle("hidden",!show);
   if(!show) return;
+
+  const actions=document.getElementById("homeProgressActions");
+  const badge=document.getElementById("homeProgressDoneBadge");
+
+  if(!stage){
+    section.classList.add("all-stages-complete");
+    document.getElementById("homeProgressStageName").textContent="所有段落";
+    document.getElementById("homeProgressValue").textContent="全部";
+    document.getElementById("homeProgressUnit").textContent="完成";
+    document.getElementById("homeProgressTarget").textContent="";
+    badge.classList.remove("hidden");
+    actions.classList.add("hidden");
+    return;
+  }
+
+  section.classList.remove("all-stages-complete");
+  actions.classList.remove("hidden");
+
   const unit=progressStageUnitText(stage);
+  const reached=isProgressStageReached(stage);
   document.getElementById("homeProgressStageName").textContent=stage.name;
   document.getElementById("homeProgressValue").textContent=stage.value;
   document.getElementById("homeProgressUnit").textContent=unit;
   document.getElementById("homeProgressTarget").textContent=stage.target?`/ ${stage.target}`:"";
+  badge.classList.toggle("hidden",!reached);
+  badge.textContent="✓ 已達目標";
+  document.getElementById("homeProgressPlusBtn").disabled=false;
 }
+
 function changeProgressStage(projectId,delta){
   const p=getProject(projectId); if(!p) return;
   const {plan,stage,index}=activeProgressStage(p); if(!plan.enabled||!stage) return;
-  stage.value=Math.max(0,stage.value+delta*stage.step);
+  const nextValue=Math.max(0,stage.value+delta*stage.step);
+  stage.value=nextValue;
   plan.stages[index]=stage; saveProgressPlan(p,plan); saveState();
   if(detailProjectId===p.id) renderProgressCounter(p);
   if(state.currentProjectId===p.id) renderHomeProgressCounter(p);
 }
-function completeActiveProgressStage(p){
+function completeActiveProgressStage(p,{askMilestone=true}={}){
   const {plan,stage,index}=activeProgressStage(p); if(!plan.enabled||!stage) return;
+
+  const completedStage={...stage};
+  if(completedStage.target && completedStage.value<completedStage.target){
+    const proceed=confirm(`「${completedStage.name}」目前是 ${completedStage.value} / ${completedStage.target} ${progressStageUnitText(completedStage)}，還沒到設定目標。\n\n仍要標記這一段完成嗎？`);
+    if(!proceed) return;
+  }
+
   plan.stages[index].completed=true;
-  plan.activeStageId=plan.stages.find((s,i)=>i>index&&!s.completed)?.id || plan.stages.find(s=>!s.completed)?.id || null;
-  saveProgressPlan(p,plan); saveState(); renderAll();
+  plan.stages[index].completedAt=now();
+  const next=plan.stages.find((s,i)=>i>index&&!s.completed) || plan.stages.find(s=>!s.completed);
+  plan.activeStageId=next?.id||null;
+  saveProgressPlan(p,plan);
+  saveState();
+  renderAll();
+
+  if(askMilestone){
+    const unit=progressStageUnitText(completedStage);
+    const addMilestone=confirm(`「${completedStage.name}」已正式完成！\n\n要把這一段加入里程碑嗎？\n你可以再補寫備註和加入照片。`);
+    if(addMilestone){
+      beginLap(p.id,{
+        name:`${completedStage.name} 完成`,
+        progressSnapshot:{
+          stageName:completedStage.name,
+          value:completedStage.value,
+          unit,
+          target:completedStage.target,
+          completed:true
+        }
+      });
+    }
+  }
+}
+
+function openProjectEditorWithNewStage(p){
+  fillProjectModal(p);
+  editingProgressStages.push(makeStage({
+    name:`第 ${editingProgressStages.length+1} 段`,
+    unit:"圈",
+    step:1,
+    value:0,
+    completed:false
+  }));
+  document.getElementById("projectCounterEnabledInput").checked=true;
+  renderProjectStageEditor();
+  updateProjectCounterConfigVisibility();
+  openModal("projectModal");
+
+  setTimeout(()=>{
+    const cards=[...document.querySelectorAll("#projectStageEditorList .project-stage-editor")];
+    const last=cards.at(-1);
+    last?.scrollIntoView({behavior:"smooth",block:"center"});
+    last?.querySelector('[data-stage-field="name"]')?.focus();
+    last?.querySelector('[data-stage-field="name"]')?.select();
+  },180);
 }
 
 function fillProjectModal(p=null){
@@ -2669,8 +2816,7 @@ document.getElementById("progressCounterMilestoneBtn").onclick=()=>{
 document.getElementById("progressStageCompleteBtn").onclick=()=>{ const p=getProject(detailProjectId); if(p) completeActiveProgressStage(p); };
 document.getElementById("progressAddNextStageBtn").onclick=()=>{
   const p=getProject(detailProjectId); if(!p) return;
-  fillProjectModal(p); openModal("projectModal");
-  setTimeout(()=>document.getElementById("projectCounterConfigBody")?.scrollIntoView({behavior:"smooth",block:"start"}),120);
+  openProjectEditorWithNewStage(p);
 };
 
 document.getElementById("addLapFromSectionBtn").onclick=()=>{
@@ -3621,7 +3767,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:26,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:27,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
