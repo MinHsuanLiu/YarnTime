@@ -81,14 +81,23 @@
                 <strong id="homeProgressValue">0</strong>
                 <small id="homeProgressUnit">圈</small>
                 <em id="homeProgressTarget"></em>
-                <span id="homeProgressDoneBadge" class="home-progress-done-badge hidden">✓ 已完成</span>
+                <span id="homeProgressDoneBadge" class="home-progress-done-badge hidden">✓ 已達目標</span>
               </div>
+              <small id="homeProgressContext" class="home-progress-context"></small>
             </div>
             <div id="homeProgressActions" class="home-progress-actions">
               <button id="homeProgressMinusBtn" type="button" aria-label="進度減少">−</button>
               <button id="homeProgressPlusBtn" type="button" aria-label="進度增加">＋</button>
             </div>
           </section>
+
+          <div id="homeLastSessionStrip" class="home-last-session-strip hidden">
+            <div>
+              <span>上次製作</span>
+              <strong id="homeLastSessionSummary">—</strong>
+            </div>
+            <button id="homeLastSessionEditBtn" type="button">補一句紀錄</button>
+          </div>
 
           <div class="active-actions">
             <button id="pauseActiveBtn" class="primary-btn">暫停</button>
@@ -261,7 +270,7 @@
         </button>
       </div>
 
-      <div class="menu-version">YarnTime v28</div>
+      <div class="menu-version">YarnTime v29</div>
     </div>
   </div>
 
@@ -453,6 +462,7 @@
           <div><span>製作期間</span><strong id="conclusionDuration">—</strong></div>
           <div><span>製作次數</span><strong id="conclusionSessions">—</strong></div>
           <div><span>平均每次</span><strong id="conclusionAverage">—</strong></div>
+          <div id="conclusionStagesItem" class="hidden"><span>進度段落</span><strong id="conclusionStages">—</strong></div>
         </div>
         <div class="conclusion-dates">
           <span>開始 <b id="conclusionStartDate">—</b></span>
@@ -693,7 +703,12 @@
       </div>
 
       <div id="sessionDurationPreview" class="session-duration-preview">本次製作：—</div>
+      <div id="sessionProgressPreview" class="session-progress-preview hidden"></div>
       <p class="session-edit-hint">如果跨過午夜，結束時間早於開始時間時會自動視為隔天。</p>
+
+      <label>這次想留一句話嗎？
+        <textarea id="sessionNoteInput" rows="2" maxlength="120" placeholder="選填，例如：今天終於把袖子織完了 XD"></textarea>
+      </label>
 
       <div class="session-modal-actions session-modal-actions-single">
         <button id="saveSessionBtn" class="primary-btn">儲存紀錄</button>
@@ -895,7 +910,7 @@
     </div>
     <div class="settings-card">
       <h3>資料儲存狀態</h3>
-      <div class="storage-status-row"><span>版本</span><strong>YarnTime v28</strong></div>
+      <div class="storage-status-row"><span>版本</span><strong>YarnTime v29</strong></div>
       <div class="storage-status-row"><span>已使用空間</span><strong id="storageUsageText">計算中…</strong></div>
       <div class="storage-status-row"><span>持久儲存</span><strong id="storagePersistText">檢查中…</strong></div>
       <button id="requestPersistBtn" class="secondary-btn wide">提高資料保留機率</button>

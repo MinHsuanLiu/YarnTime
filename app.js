@@ -101,6 +101,32 @@ function latestSessionDurationMs(p){
   return latest?.durationMs||0;
 }
 
+function latestSessionRecord(p){
+  const sessions=(p?.sessions||[]).filter(s=>Number.isFinite(s?.durationMs));
+  if(!sessions.length) return null;
+  return sessions.slice().sort((a,b)=>(b.endedAt||b.startedAt||0)-(a.endedAt||a.startedAt||0))[0]||null;
+}
+
+function progressSnapshotText(snapshot){
+  if(!snapshot) return "";
+  return `${snapshot.stageName||"進度"} ${snapshot.value} ${snapshot.unit||""}`.trim();
+}
+
+function sessionProgressText(s){
+  const a=s?.progressStart, b=s?.progressEnd;
+  if(!a && !b) return "";
+  if(a && b){
+    if(a.stageId===b.stageId && a.unit===b.unit){
+      const delta=(Number(b.value)||0)-(Number(a.value)||0);
+      const deltaText=delta>0?` · +${delta}`:delta<0?` · ${delta}`:"";
+      return `${a.stageName||b.stageName||"進度"} ${a.value} → ${b.value} ${b.unit||a.unit||""}${deltaText}`;
+    }
+    return `${progressSnapshotText(a)} → ${progressSnapshotText(b)}`;
+  }
+  return progressSnapshotText(b||a);
+}
+
+
 function escapeHTML(str=""){
   return str.replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 }
@@ -113,16 +139,21 @@ function ensureSessions(p){
   if(!Array.isArray(p.sessions)) p.sessions=[];
   return p.sessions;
 }
-function recordSession(p,startedAt,endedAt){
-  if(!p || !startedAt || !endedAt || endedAt<=startedAt) return;
+function recordSession(p,startedAt,endedAt,progressStart=null,progressEnd=null){
+  if(!p || !startedAt || !endedAt || endedAt<=startedAt) return null;
   const durationMs=endedAt-startedAt;
-  if(durationMs<1000) return;
-  ensureSessions(p).push({
+  if(durationMs<1000) return null;
+  const session={
     id:uuid(),
     startedAt,
     endedAt,
-    durationMs
-  });
+    durationMs,
+    note:"",
+    progressStart:progressStart?{...progressStart}:null,
+    progressEnd:progressEnd?{...progressEnd}:null
+  };
+  ensureSessions(p).push(session);
+  return session;
 }
 function formatSessionClock(ms){
   return new Intl.DateTimeFormat("zh-TW",{hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date(ms));
@@ -1231,7 +1262,9 @@ function pauseProject(p){
   const startedAt=p.startedAt;
   const duration=Math.max(0,endedAt-startedAt);
   p.accumulatedMs=(p.accumulatedMs||0)+duration;
-  recordSession(p,startedAt,endedAt);
+  const progressEnd=captureProgressSnapshot(p);
+  recordSession(p,startedAt,endedAt,p.activeProgressStart||null,progressEnd);
+  p.activeProgressStart=null;
   p.startedAt=null;
   p.isRunning=false;
   p.lastWorkedAt=endedAt;
@@ -1258,6 +1291,7 @@ function startProject(id){
     p.isRunning=true;
     p.startedAt=now();
     p.lastWorkedAt=now();
+    p.activeProgressStart=captureProgressSnapshot(p);
     state.activeProjectId=id;
   }
   saveState(); renderAll();
@@ -1560,6 +1594,7 @@ function renderActive(){
       img.removeAttribute("src");
     }
     document.getElementById("homeProgressCounter")?.classList.add("hidden");
+    document.getElementById("homeLastSessionStrip")?.classList.add("hidden");
     return;
   }
 
@@ -1602,6 +1637,7 @@ function renderActive(){
   }
 
   renderHomeProgressCounter(p);
+  renderHomeLastSessionStrip(p);
   renderActiveProjectPhoto(p);
 }
 
@@ -1748,6 +1784,7 @@ function renderDetail(){
   detailActions.classList.toggle("hidden",!!p.isCompleted);
   liveStats.classList.toggle("hidden",!!p.isCompleted);
   conclusion.classList.toggle("hidden",!p.isCompleted);
+  if(!p.isCompleted) document.getElementById("conclusionStagesItem").classList.add("hidden");
 
   if(p.isCompleted){
     const sessionCount=p.sessions?.length||0;
@@ -1756,6 +1793,13 @@ function renderDetail(){
     document.getElementById("conclusionDuration").textContent=projectDurationText(p);
     document.getElementById("conclusionSessions").textContent=`${sessionCount} 次`;
     document.getElementById("conclusionAverage").textContent=sessionCount?fmtHuman(sessionTotal/sessionCount):"—";
+    const plan=normalizedProgressPlan(p);
+    const stageItem=document.getElementById("conclusionStagesItem");
+    stageItem.classList.toggle("hidden",!plan.enabled);
+    if(plan.enabled){
+      const finished=plan.stages.filter(s=>s.completed).length;
+      document.getElementById("conclusionStages").textContent=`${finished} / ${plan.stages.length} 段`;
+    }
     document.getElementById("conclusionStartDate").textContent=formatCardDate(p.createdAt);
     document.getElementById("conclusionEndDate").textContent=formatCardDate(p.completedAt);
   }
@@ -1781,6 +1825,8 @@ function renderDetail(){
           <div class="session-date">
             <strong>${formatSessionDate(s.startedAt)}</strong>
             <small>${formatSessionClock(s.startedAt)} – ${formatSessionClock(s.endedAt)}</small>
+            ${sessionProgressText(s)?`<em class="session-progress-line">${escapeHTML(sessionProgressText(s))}</em>`:""}
+            ${s.note?`<em class="session-note-line">${escapeHTML(s.note)}</em>`:""}
           </div>
           <div class="session-row-right">
             <div class="session-duration">${fmtHuman(s.durationMs)}</div>
@@ -1922,6 +1968,25 @@ function renderStats(){
     return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
   })).size;
 
+  const progressProjects=state.projects.filter(p=>normalizedProgressPlan(p).enabled);
+  const completedStageCount=progressProjects.reduce((sum,p)=>
+    sum+normalizedProgressPlan(p).stages.filter(s=>s.completed).length,0);
+  const currentStageRows=progressProjects
+    .filter(p=>!p.isCompleted)
+    .map(p=>{
+      const {plan,stage,index}=activeProgressStage(p);
+      if(!stage) return null;
+      const unit=progressStageUnitText(stage);
+      return {
+        project:p,
+        stage,
+        index,
+        total:plan.stages.length,
+        unit
+      };
+    }).filter(Boolean);
+
+
   const dayData=[];
   for(let i=6;i>=0;i--){
     const d=new Date();
@@ -1994,7 +2059,30 @@ function renderStats(){
         </div>
       `).join(""):`<p>還沒有統計資料。</p>`}
       ${total>0 && sessions.length===0?`<p class="stats-footnote">逐次製作統計會從 v8 開始累積；之前的總工時仍完整保留。</p>`:""}
-    </section>`;
+    </section>
+
+    ${progressProjects.length?`
+      <section class="stats-progress-growth">
+        <div class="stats-section-head">
+          <div>
+            <span class="home-kicker">MAKE PROGRESS</span>
+            <h3>作品成長</h3>
+          </div>
+          <small>${completedStageCount} 段已完成</small>
+        </div>
+        <div class="stats-progress-list">
+          ${currentStageRows.length?currentStageRows.slice(0,5).map(row=>`
+            <div class="stats-progress-row">
+              <div>
+                <strong>${escapeHTML(row.project.name)}</strong>
+                <small>${escapeHTML(row.stage.name)} · 第 ${row.index+1}/${row.total} 段</small>
+              </div>
+              <span>${row.stage.value}${row.stage.target?` / ${row.stage.target}`:""} ${escapeHTML(row.unit)}</span>
+            </div>
+          `).join(""):`<p class="stats-progress-empty">目前沒有進行中的進度段落。</p>`}
+        </div>
+      </section>
+    `:""}`;
 }
 
 function updateHomeActiveLiveOnly(){
@@ -2141,6 +2229,26 @@ function activeProgressStage(p){
 function progressStageUnitText(stage){
   return stage?.unit==="自訂"?(stage.customUnit||"項"):(stage?.unit||"圈");
 }
+function captureProgressSnapshot(p){
+  const {plan,stage}=activeProgressStage(p);
+  if(!plan.enabled || !stage) return null;
+  return {
+    stageId:stage.id,
+    stageName:stage.name,
+    unit:progressStageUnitText(stage),
+    value:stage.value,
+    target:stage.target||null,
+    at:now()
+  };
+}
+function stageRelatedWorkMs(p,stageId){
+  if(!stageId) return 0;
+  return (p.sessions||[]).reduce((sum,s)=>{
+    const related=s.progressStart?.stageId===stageId || s.progressEnd?.stageId===stageId;
+    return sum+(related?(s.durationMs||0):0);
+  },0);
+}
+
 function isProgressStageReached(stage){
   return !!(stage && stage.target && stage.value>=stage.target);
 }
@@ -2161,7 +2269,12 @@ function renderProjectStageEditor(){
     <article class="project-stage-editor" data-stage-editor-id="${stage.id}">
       <div class="project-stage-editor-head">
         <span>第 ${index+1} 段</span>
-        <button type="button" data-remove-stage="${stage.id}" ${editingProgressStages.length<=1?"disabled":""}>移除</button>
+        <div class="stage-editor-actions">
+          <button type="button" data-stage-up="${stage.id}" ${index===0?"disabled":""} aria-label="往上移">↑</button>
+          <button type="button" data-stage-down="${stage.id}" ${index===editingProgressStages.length-1?"disabled":""} aria-label="往下移">↓</button>
+          <button type="button" data-duplicate-stage="${stage.id}">複製</button>
+          <button type="button" data-remove-stage="${stage.id}" ${editingProgressStages.length<=1?"disabled":""}>移除</button>
+        </div>
       </div>
       <label>段落名稱
         <input data-stage-field="name" maxlength="30" value="${escapeHTML(stage.name)}" placeholder="例如：衣身、左袖、領口" />
@@ -2206,7 +2319,7 @@ function updateProjectCounterConfigVisibility(){
     renderProjectStageEditor();
   }
 }
-function renderCompletedStagesHistory(plan){
+function renderCompletedStagesHistory(p,plan){
   const box=document.getElementById("completedStagesHistory");
   const list=document.getElementById("completedStagesList");
   const completed=plan.stages.filter(s=>s.completed);
@@ -2226,14 +2339,15 @@ function renderCompletedStagesHistory(plan){
       const progress=stage.target
         ? `${stage.value} / ${stage.target} ${unit}`
         : `${stage.value} ${unit}`;
+      const workMs=stageRelatedWorkMs(p,stage.id);
       return `
         <article class="completed-stage-row">
           <span class="completed-stage-check">✓</span>
           <div class="completed-stage-copy">
             <strong>${escapeHTML(stage.name)}</strong>
-            <small>${escapeHTML(progress)} · ${escapeHTML(formatStageCompletedAt(stage.completedAt))}</small>
+            <small>${escapeHTML(progress)} · ${escapeHTML(formatStageCompletedAt(stage.completedAt))}${workMs?` · 關聯工時 ${escapeHTML(fmtHuman(workMs))}`:""}</small>
           </div>
-          <span class="completed-stage-status">完成</span>
+          <button type="button" class="completed-stage-reopen" data-reopen-stage="${stage.id}">重新開啟</button>
         </article>`;
     }).join("");
 }
@@ -2244,7 +2358,7 @@ function renderProgressCounter(p){
   section.classList.toggle("hidden",!plan.enabled);
   if(!plan.enabled) return;
 
-  renderCompletedStagesHistory(plan);
+  renderCompletedStagesHistory(p,plan);
 
   const done=document.getElementById("progressAllStagesDone");
   const card=document.querySelector("#progressCounterSection .progress-counter-card");
@@ -2311,6 +2425,7 @@ function renderHomeProgressCounter(p){
 
   const actions=document.getElementById("homeProgressActions");
   const badge=document.getElementById("homeProgressDoneBadge");
+  const context=document.getElementById("homeProgressContext");
 
   if(!stage){
     section.classList.add("all-stages-complete");
@@ -2318,8 +2433,10 @@ function renderHomeProgressCounter(p){
     document.getElementById("homeProgressValue").textContent="全部";
     document.getElementById("homeProgressUnit").textContent="完成";
     document.getElementById("homeProgressTarget").textContent="";
+    badge.textContent="✓ 已完成";
     badge.classList.remove("hidden");
     actions.classList.add("hidden");
+    context.textContent="所有設定的進度段落都完成了";
     return;
   }
 
@@ -2335,6 +2452,30 @@ function renderHomeProgressCounter(p){
   badge.classList.toggle("hidden",!reached);
   badge.textContent="✓ 已達目標";
   document.getElementById("homeProgressPlusBtn").disabled=false;
+
+  if(p.isRunning && p.activeProgressStart?.stageId===stage.id){
+    context.textContent=`本次從 ${p.activeProgressStart.value} ${p.activeProgressStart.unit||unit}開始`;
+  }else{
+    const latest=latestSessionRecord(p);
+    if(latest?.progressEnd){
+      context.textContent=`上次停在 ${progressSnapshotText(latest.progressEnd)} · ${formatSessionDate(latest.endedAt)}`;
+    }else{
+      context.textContent="";
+    }
+  }
+}
+
+function renderHomeLastSessionStrip(p){
+  const strip=document.getElementById("homeLastSessionStrip");
+  if(!strip) return;
+  const latest=!p?.isRunning?latestSessionRecord(p):null;
+  strip.classList.toggle("hidden",!latest);
+  if(!latest) return;
+
+  const progress=sessionProgressText(latest);
+  document.getElementById("homeLastSessionSummary").textContent=
+    `${fmtHuman(latest.durationMs)}${progress?` · ${progress}`:""}${latest.note?` · ${latest.note}`:""}`;
+  document.getElementById("homeLastSessionEditBtn").dataset.sessionId=latest.id;
 }
 
 function changeProgressStage(projectId,delta){
@@ -2458,6 +2599,11 @@ function openSessionModal(projectId,sessionId=null){
   document.getElementById("sessionDateInput").value=localDateInputValue(reference);
   document.getElementById("sessionStartInput").value=localTimeInputValue(reference);
   document.getElementById("sessionEndInput").value=localTimeInputValue(endRef);
+  document.getElementById("sessionNoteInput").value=s?.note||"";
+  const progressPreview=document.getElementById("sessionProgressPreview");
+  const progressText=s?sessionProgressText(s):"";
+  progressPreview.textContent=progressText?`這次進度：${progressText}`:"";
+  progressPreview.classList.toggle("hidden",!progressText);
   updateSessionDurationPreview();
   openModal("sessionModal");
 }
@@ -2491,10 +2637,46 @@ document.getElementById("addProjectStageBtn").onclick=()=>{
   renderProjectStageEditor();
 };
 document.getElementById("projectStageEditorList").addEventListener("click",(e)=>{
-  const btn=e.target.closest("[data-remove-stage]"); if(!btn) return;
+  const remove=e.target.closest("[data-remove-stage]");
+  const duplicate=e.target.closest("[data-duplicate-stage]");
+  const up=e.target.closest("[data-stage-up]");
+  const down=e.target.closest("[data-stage-down]");
+  if(!remove && !duplicate && !up && !down) return;
+
   syncEditingStagesFromDom();
-  if(editingProgressStages.length<=1) return;
-  editingProgressStages=editingProgressStages.filter(s=>s.id!==btn.dataset.removeStage);
+
+  if(remove){
+    if(editingProgressStages.length<=1) return;
+    editingProgressStages=editingProgressStages.filter(s=>s.id!==remove.dataset.removeStage);
+  }
+
+  if(duplicate){
+    const index=editingProgressStages.findIndex(s=>s.id===duplicate.dataset.duplicateStage);
+    if(index>=0){
+      const source=editingProgressStages[index];
+      const copy=makeStage({
+        ...source,
+        id:null,
+        name:`${source.name} 複製`,
+        value:0,
+        completed:false,
+        completedAt:null
+      });
+      editingProgressStages.splice(index+1,0,copy);
+    }
+  }
+
+  const move=(btn,dir)=>{
+    if(!btn) return;
+    const id=dir<0?btn.dataset.stageUp:btn.dataset.stageDown;
+    const index=editingProgressStages.findIndex(s=>s.id===id);
+    const next=index+dir;
+    if(index<0 || next<0 || next>=editingProgressStages.length) return;
+    [editingProgressStages[index],editingProgressStages[next]]=[editingProgressStages[next],editingProgressStages[index]];
+  };
+  move(up,-1);
+  move(down,1);
+
   renderProjectStageEditor();
 });
 document.getElementById("projectStageEditorList").addEventListener("change",(e)=>{
@@ -2792,6 +2974,22 @@ document.getElementById("deleteConfirmOkBtn").onclick=async()=>{
   renderAll();
 };
 
+
+document.getElementById("completedStagesList").addEventListener("click",(e)=>{
+  const btn=e.target.closest("[data-reopen-stage]");
+  if(!btn || !detailProjectId) return;
+  const p=getProject(detailProjectId); if(!p) return;
+  const plan=normalizedProgressPlan(p);
+  const stage=plan.stages.find(s=>s.id===btn.dataset.reopenStage);
+  if(!stage) return;
+  if(!confirm(`重新開啟「${stage.name}」嗎？\n它會成為目前進度段落，原本完成紀錄會取消。`)) return;
+  stage.completed=false;
+  stage.completedAt=null;
+  plan.activeStageId=stage.id;
+  saveProgressPlan(p,plan);
+  saveState();
+  renderAll();
+});
 
 document.getElementById("progressCounterMinusBtn").onclick=()=>{ if(detailProjectId) changeProgressStage(detailProjectId,-1); };
 document.getElementById("progressCounterPlusBtn").onclick=()=>{ if(detailProjectId) changeProgressStage(detailProjectId,1); };
@@ -3099,12 +3297,16 @@ document.getElementById("saveSessionBtn").onclick=()=>{
     s.startedAt=times.start;
     s.endedAt=times.end;
     s.durationMs=times.durationMs;
+    s.note=document.getElementById("sessionNoteInput").value.trim();
   }else{
     ensureSessions(p).push({
       id:uuid(),
       startedAt:times.start,
       endedAt:times.end,
       durationMs:times.durationMs,
+      note:document.getElementById("sessionNoteInput").value.trim(),
+      progressStart:null,
+      progressEnd:null,
       isManual:true
     });
   }
@@ -3708,6 +3910,14 @@ document.getElementById("homeRecentEmpty").onclick=()=>{
 document.getElementById("homeQuickAddProjectBtn").onclick=()=>{
   document.getElementById("addProjectBtn").click();
 };
+document.getElementById("homeLastSessionEditBtn").onclick=()=>{
+  const p=state.currentProjectId?getProject(state.currentProjectId):null;
+  const sessionId=document.getElementById("homeLastSessionEditBtn").dataset.sessionId;
+  if(!p || !sessionId) return;
+  detailProjectId=p.id;
+  openSessionModal(p.id,sessionId);
+};
+
 document.getElementById("homeStartProjectBtn").onclick=()=>{
   const btn=document.getElementById("homeStartProjectBtn");
   if(btn.dataset.emptyMode==="add"){
@@ -3767,7 +3977,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:27,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:29,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
@@ -3792,7 +4002,8 @@ document.getElementById("importInput").onchange=async(e)=>{
       const lapPhotos=data.lapPhotos||{};
       const nextState={
         projects:data.projects,
-        activeProjectId:data.activeProjectId||null
+        activeProjectId:data.activeProjectId||null,
+        currentProjectId:data.currentProjectId||data.activeProjectId||null
       };
       await clearAllProjectPhotos();
       for(const [projectId,dataURL] of Object.entries(photos)){

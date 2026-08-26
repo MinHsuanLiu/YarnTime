@@ -4052,3 +4052,199 @@ body.modal-open .modal-backdrop{
   background:#F8F0DE;
   color:#846A3E;
 }
+
+
+/* =========================================================
+   v29 — Growth Journal
+   ========================================================= */
+
+.home-progress-context{
+  display:block;
+  margin-top:4px;
+  font-size:7.5px;
+  color:#9A8675;
+  line-height:1.35;
+}
+
+.home-last-session-strip{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin:-2px 0 10px;
+  padding:8px 10px;
+  border-radius:12px;
+  background:#FCF8F2;
+  border:1px solid #E8DDD2;
+}
+
+.home-last-session-strip.hidden{
+  display:none !important;
+}
+
+.home-last-session-strip>div{
+  min-width:0;
+}
+
+.home-last-session-strip span{
+  display:block;
+  font-size:7px;
+  color:#A18C7A;
+}
+
+.home-last-session-strip strong{
+  display:block;
+  margin-top:2px;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+  font-size:8.5px;
+  color:#6F5C4F;
+}
+
+.home-last-session-strip button{
+  flex:0 0 auto;
+  border:0;
+  background:transparent;
+  color:var(--yt-orange-deep);
+  font-size:8px;
+  font-weight:850;
+}
+
+.session-progress-preview{
+  margin:8px 0 3px;
+  padding:8px 10px;
+  border-radius:10px;
+  background:#F6EBDD;
+  color:#7B654F;
+  font-size:8px;
+  font-weight:750;
+}
+
+.session-progress-preview.hidden{
+  display:none !important;
+}
+
+.session-date em{
+  display:block;
+  margin-top:3px;
+  font-style:normal;
+  line-height:1.35;
+}
+
+.session-progress-line{
+  font-size:7.5px;
+  color:#8B725D;
+  font-weight:750;
+}
+
+.session-note-line{
+  max-width:210px;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+  font-size:7.5px;
+  color:#A18C7A;
+}
+
+.stage-editor-actions{
+  display:flex;
+  align-items:center;
+  gap:3px;
+}
+
+.stage-editor-actions button{
+  min-width:24px;
+  min-height:26px;
+  padding:0 5px;
+  border-radius:7px;
+}
+
+.completed-stage-reopen{
+  padding:5px 7px;
+  border:1px solid #CCD9C7;
+  border-radius:8px;
+  background:#F8FBF6;
+  color:#62765B;
+  font-size:7px;
+  font-weight:850;
+  white-space:nowrap;
+}
+
+.stats-progress-growth{
+  margin-top:14px;
+  padding:15px;
+  border:1px solid #E5D8CC;
+  border-radius:17px;
+  background:#FCF8F2;
+}
+
+.stats-section-head{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+
+.stats-section-head h3{
+  margin:2px 0 0;
+  font-size:14px;
+}
+
+.stats-section-head small{
+  font-size:8px;
+  color:#9D8877;
+}
+
+.stats-progress-list{
+  display:grid;
+  gap:7px;
+}
+
+.stats-progress-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:9px 10px;
+  border-radius:11px;
+  background:#FFFDF9;
+  border:1px solid #ECE1D7;
+}
+
+.stats-progress-row div{
+  min-width:0;
+}
+
+.stats-progress-row strong{
+  display:block;
+  font-size:9px;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+
+.stats-progress-row small{
+  display:block;
+  margin-top:2px;
+  font-size:7px;
+  color:#9A8675;
+}
+
+.stats-progress-row>span{
+  flex:0 0 auto;
+  font-size:8px;
+  font-weight:850;
+  color:var(--yt-orange-deep);
+}
+
+.stats-progress-empty{
+  margin:0;
+  font-size:8px;
+  color:#9A8675;
+}
+
+#conclusionStagesItem.hidden{
+  display:none !important;
+}
