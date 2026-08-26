@@ -266,82 +266,6 @@
     </div>
   </div>
 
-  <!-- Completion flow -->
-  <div id="completionFlowModal" class="modal-backdrop hidden">
-    <div class="modal-sheet completion-flow-sheet">
-      <div class="sheet-handle"></div>
-
-      <div id="completionFormStep">
-        <div class="sheet-head">
-          <div>
-            <div class="eyebrow">FINISH MAKE</div>
-            <h2>完成這件作品</h2>
-          </div>
-          <button class="text-btn" data-close="completionFlowModal">關閉</button>
-        </div>
-
-        <div class="completion-flow-summary">
-          <div><span>作品</span><strong id="completionFlowName">—</strong></div>
-          <div><span>總工時</span><strong id="completionFlowTotal">—</strong></div>
-          <div><span>製作次數</span><strong id="completionFlowSessions">—</strong></div>
-          <div><span>製作期間</span><strong id="completionFlowDuration">—</strong></div>
-        </div>
-
-        <label class="completion-date-field">完成日期
-          <input id="completionDateInput" type="date" />
-        </label>
-
-        <div class="completion-photo-field">
-          <div>
-            <strong>完成照</strong>
-            <small>可以略過，也可以用最後成品照更新作品封面。</small>
-          </div>
-          <button id="completionPhotoBtn" class="secondary-btn" type="button">選擇完成照</button>
-          <input id="completionPhotoInput" class="hidden-file-input" type="file" accept="image/*" />
-          <div id="completionPhotoPreview" class="completion-photo-preview hidden"></div>
-          <button id="clearCompletionPhotoBtn" class="text-btn hidden" type="button">移除這張照片</button>
-        </div>
-
-        <div class="completion-flow-actions">
-          <button class="secondary-btn" data-close="completionFlowModal">取消</button>
-          <button id="confirmCompleteBtn" class="primary-btn">完成作品</button>
-        </div>
-      </div>
-
-      <div id="completionSuccessStep" class="completion-success hidden">
-        <div class="completion-success-mark">✓</div>
-        <div class="eyebrow">FINISHED</div>
-        <h2>完成啦！</h2>
-        <h3 id="completionSuccessName">—</h3>
-        <div class="completion-success-stats">
-          <div><span>總工時</span><strong id="completionSuccessTotal">—</strong></div>
-          <div><span>製作次數</span><strong id="completionSuccessSessions">—</strong></div>
-          <div><span>製作期間</span><strong id="completionSuccessDuration">—</strong></div>
-        </div>
-        <div class="completion-flow-actions">
-          <button id="completionDoneBtn" class="secondary-btn">完成</button>
-          <button id="completionReviewBtn" class="primary-btn">看看作品回顧</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Long session reminder -->
-  <div id="longSessionReminderModal" class="modal-backdrop hidden">
-    <div class="modal-sheet compact-sheet long-session-sheet">
-      <div class="sheet-handle"></div>
-      <div class="long-session-icon">⏱</div>
-      <div class="eyebrow">YARNTIME CHECK</div>
-      <h2>已經連續製作 3 小時了</h2>
-      <p id="longSessionReminderText">如果你還在做，可以繼續；如果其實早就休息了，可以現在暫停或修正這筆時間。</p>
-      <div class="long-session-actions">
-        <button id="longSessionContinueBtn" class="secondary-btn">繼續計時</button>
-        <button id="longSessionPauseBtn" class="primary-btn">現在暫停</button>
-        <button id="longSessionFixBtn" class="text-btn long-session-fix-btn">暫停並修正時間</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Project modal -->
   <div id="projectModal" class="modal-backdrop hidden">
     <div class="modal-sheet">
@@ -408,6 +332,52 @@
           </label>
         </div>
       </details>
+
+      <section class="counter-config-card">
+        <div class="counter-config-top">
+          <div>
+            <strong>進度計數</strong>
+            <small>選填，例如第幾圈、第幾行</small>
+          </div>
+          <label class="counter-switch">
+            <input id="projectCounterEnabledInput" type="checkbox" />
+            <span aria-hidden="true"></span>
+          </label>
+        </div>
+
+        <div id="projectCounterConfigBody" class="counter-config-body hidden">
+          <div class="counter-config-grid">
+            <label>單位
+              <select id="projectCounterUnitInput">
+                <option value="圈">圈</option>
+                <option value="行">行</option>
+                <option value="段">段</option>
+                <option value="片">片</option>
+                <option value="自訂">自訂</option>
+              </select>
+            </label>
+
+            <label id="projectCounterCustomUnitLabel" class="hidden">自訂單位
+              <input id="projectCounterCustomUnitInput" maxlength="12" placeholder="例如：花樣" />
+            </label>
+
+            <label>目標數量
+              <input id="projectCounterTargetInput" inputmode="numeric" maxlength="6" placeholder="選填，例如：80" />
+            </label>
+
+            <label>每次加減
+              <select id="projectCounterStepInput">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="10">10</option>
+              </select>
+            </label>
+          </div>
+          <p>啟用後，作品日誌會出現快速 ＋／－ 計數卡。不影響工時計時。</p>
+        </div>
+      </section>
 
       <label>備註
         <textarea id="projectNoteInput" rows="3" placeholder="其他想記下來的事情…"></textarea>
@@ -509,23 +479,48 @@
         <button class="detail-tab" data-detail-tab="more">更多</button>
       </nav>
 
-      <div id="journalModeBar" class="journal-mode-bar detail-panel detail-panel-journal">
-        <button class="journal-mode-btn active" data-journal-mode="all">全部</button>
-        <button class="journal-mode-btn" data-journal-mode="sessions">製作紀錄</button>
-        <button class="journal-mode-btn" data-journal-mode="laps">里程碑</button>
-      </div>
-
-      <div id="journalAllSection" class="subsection journal-all-section detail-panel detail-panel-journal">
-        <div class="subsection-head">
+      <section id="progressCounterSection" class="subsection progress-counter-section detail-panel detail-panel-journal hidden">
+        <div class="subsection-head progress-counter-head">
           <div>
-            <h3>全部動態</h3>
-            <p>把每次製作與重要進度放在同一條時間線。</p>
+            <h3>進度計數</h3>
+            <p id="progressCounterHint">記住現在做到哪裡，不影響工時計時。</p>
           </div>
+          <button id="progressCounterMilestoneBtn" class="mini-action-btn">記錄到里程碑</button>
         </div>
-        <div id="journalAllList" class="journal-all-list"></div>
-      </div>
 
-      <div id="sessionSection" class="subsection session-section detail-panel detail-panel-journal">
+        <div class="progress-counter-card">
+          <button id="progressCounterMinusBtn" class="progress-counter-btn" type="button" aria-label="減少進度">−</button>
+
+          <div class="progress-counter-center">
+            <span id="progressCounterCaption">目前進度</span>
+            <div class="progress-counter-number">
+              <strong id="progressCounterValue">0</strong>
+              <b id="progressCounterUnit">圈</b>
+            </div>
+            <div id="progressCounterTargetWrap" class="progress-counter-target hidden">
+              <div class="progress-counter-bar"><i id="progressCounterBarFill"></i></div>
+              <span id="progressCounterTargetText">0 / 80 圈</span>
+            </div>
+          </div>
+
+          <button id="progressCounterPlusBtn" class="progress-counter-btn primary" type="button" aria-label="增加進度">＋</button>
+        </div>
+
+        <div class="progress-counter-foot">
+          <label>每次加減
+            <select id="progressCounterStepSelect">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="10">10</option>
+            </select>
+          </label>
+          <small>需要變更單位或目標，可到「作品資料 → 編輯」。</small>
+        </div>
+      </section>
+
+      <div class="subsection session-section detail-panel detail-panel-journal">
         <div class="subsection-head">
           <div>
             <h3>製作紀錄</h3>
@@ -541,7 +536,7 @@
         <button id="loadMoreSessionsBtn" class="load-more-btn hidden">顯示更多製作紀錄</button>
       </div>
 
-      <div id="lapSection" class="subsection journal-section detail-panel detail-panel-journal">
+      <div class="subsection journal-section detail-panel detail-panel-journal">
         <div class="subsection-head">
           <div>
             <h3>里程碑</h3>

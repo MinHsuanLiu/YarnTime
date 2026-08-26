@@ -3,13 +3,10 @@ const STORAGE_KEY = "yarntime_v1";
 let state = loadState();
 let detailProjectId = null;
 let currentDetailTab = "journal";
-let currentJournalMode = "all";
-let pendingCompletionPhotoFile = null;
-let pendingCompletionPhotoPreviewUrl = null;
-const longSessionReminderSeen = new Set();
 let currentMainView = "home";
 let pendingLapProjectId = null;
 let pendingLapSnapshot = null;
+let pendingLapProgressSnapshot = null;
 let pendingProjectPhotoFile = null;
 let pendingProjectPhotoPreviewUrl = null;
 let pendingLapPhotoFile = null;
@@ -42,6 +39,19 @@ function loadState(){
     s.projects.forEach(p=>{
       if(!Array.isArray(p.sessions)) p.sessions=[];
       if(!p.projectInfo || typeof p.projectInfo!=="object") p.projectInfo={};
+      const oldCounter=p.projectInfo.progressCounter;
+      if(!oldCounter || typeof oldCounter!=="object"){
+        p.projectInfo.progressCounter={enabled:false,unit:"圈",customUnit:"",target:null,step:1,value:0};
+      }else{
+        p.projectInfo.progressCounter={
+          enabled:!!oldCounter.enabled,
+          unit:["圈","行","段","片","自訂"].includes(oldCounter.unit)?oldCounter.unit:"圈",
+          customUnit:String(oldCounter.customUnit||"").slice(0,12),
+          target:Number.isFinite(Number(oldCounter.target)) && Number(oldCounter.target)>0 ? Math.floor(Number(oldCounter.target)) : null,
+          step:[1,2,4,5,10].includes(Number(oldCounter.step))?Number(oldCounter.step):1,
+          value:Number.isFinite(Number(oldCounter.value)) && Number(oldCounter.value)>=0 ? Math.floor(Number(oldCounter.value)) : 0
+        };
+      }
       if(!p.sellerPricing || typeof p.sellerPricing!=="object") p.sellerPricing={};
       if(!("valueAdd" in p.sellerPricing)) p.sellerPricing.valueAdd=null;
       if(!Array.isArray(p.laps)) p.laps=[];
@@ -1700,166 +1710,6 @@ function renderSellerPricingResult(p){
   }
 }
 
-
-function formatJournalDate(ts){
-  if(!ts) return "—";
-  const d=new Date(ts);
-  return d.toLocaleString("zh-TW",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"});
-}
-
-function renderUnifiedJournal(p){
-  const list=document.getElementById("journalAllList");
-  if(!list) return;
-
-  const items=[];
-
-  (p.sessions||[]).forEach(s=>{
-    items.push({
-      kind:"session",
-      at:s.endedAt||s.startedAt||0,
-      startedAt:s.startedAt,
-      endedAt:s.endedAt,
-      durationMs:s.durationMs||0,
-      isManual:!!s.isManual
-    });
-  });
-
-  (p.laps||[]).forEach((l,index)=>{
-    items.push({
-      kind:"lap",
-      at:l.at||0,
-      name:l.name||`進度 ${index+1}`,
-      note:l.note||"",
-      totalMs:l.totalMs||0
-    });
-  });
-
-  if(p.isRunning && p.startedAt){
-    items.push({
-      kind:"running",
-      at:Date.now(),
-      startedAt:p.startedAt,
-      durationMs:currentSessionMs(p)
-    });
-  }
-
-  items.sort((a,b)=>(b.at||0)-(a.at||0));
-
-  if(!items.length){
-    list.innerHTML=`<div class="journal-all-empty">開始製作或記下一個里程碑後，作品故事會出現在這裡。</div>`;
-    return;
-  }
-
-  list.innerHTML=items.map(item=>{
-    if(item.kind==="running"){
-      return `<article class="journal-all-item journal-all-running">
-        <div class="journal-all-dot">●</div>
-        <div class="journal-all-card">
-          <div class="journal-all-head"><strong>正在製作</strong><span>${formatJournalDate(item.startedAt)}</span></div>
-          <p>本次已進行 <b>${fmtHuman(item.durationMs)}</b></p>
-        </div>
-      </article>`;
-    }
-
-    if(item.kind==="session"){
-      return `<article class="journal-all-item">
-        <div class="journal-all-dot journal-all-session-dot">◷</div>
-        <div class="journal-all-card">
-          <div class="journal-all-head"><strong>製作 ${fmtHuman(item.durationMs)}</strong><span>${formatJournalDate(item.startedAt)}</span></div>
-          <p>${formatSessionClock(item.startedAt)} – ${formatSessionClock(item.endedAt)}${item.isManual?" · 補登":""}</p>
-        </div>
-      </article>`;
-    }
-
-    return `<article class="journal-all-item">
-      <div class="journal-all-dot journal-all-lap-dot">◆</div>
-      <div class="journal-all-card journal-all-lap-card">
-        <div class="journal-all-head"><strong>${escapeHTML(item.name)}</strong><span>${formatJournalDate(item.at)}</span></div>
-        ${item.note?`<p>${escapeHTML(item.note)}</p>`:`<p>記下一個作品進度</p>`}
-      </div>
-    </article>`;
-  }).join("");
-}
-
-function applyJournalMode(mode=currentJournalMode){
-  currentJournalMode=mode;
-  document.querySelectorAll(".journal-mode-btn").forEach(btn=>{
-    btn.classList.toggle("active",btn.dataset.journalMode===mode);
-  });
-
-  const all=document.getElementById("journalAllSection");
-  const sessions=document.getElementById("sessionSection");
-  const laps=document.getElementById("lapSection");
-
-  all.classList.toggle("journal-mode-hidden",mode!=="all");
-  sessions.classList.toggle("journal-mode-hidden",mode!=="sessions");
-  laps.classList.toggle("journal-mode-hidden",mode!=="laps");
-}
-
-function resetCompletionPhoto(){
-  pendingCompletionPhotoFile=null;
-  if(pendingCompletionPhotoPreviewUrl){
-    URL.revokeObjectURL(pendingCompletionPhotoPreviewUrl);
-    pendingCompletionPhotoPreviewUrl=null;
-  }
-  const input=document.getElementById("completionPhotoInput");
-  const preview=document.getElementById("completionPhotoPreview");
-  const clear=document.getElementById("clearCompletionPhotoBtn");
-  if(input) input.value="";
-  if(preview){
-    preview.innerHTML="";
-    preview.classList.add("hidden");
-  }
-  clear?.classList.add("hidden");
-}
-
-function setCompletionPhoto(file){
-  resetCompletionPhoto();
-  if(!file) return;
-  pendingCompletionPhotoFile=file;
-  pendingCompletionPhotoPreviewUrl=URL.createObjectURL(file);
-  const preview=document.getElementById("completionPhotoPreview");
-  preview.innerHTML=`<img src="${pendingCompletionPhotoPreviewUrl}" alt="完成照預覽">`;
-  preview.classList.remove("hidden");
-  document.getElementById("clearCompletionPhotoBtn").classList.remove("hidden");
-}
-
-function openCompletionFlow(projectId){
-  const p=getProject(projectId); if(!p || p.isCompleted) return;
-
-  resetCompletionPhoto();
-  document.getElementById("completionFormStep").classList.remove("hidden");
-  document.getElementById("completionSuccessStep").classList.add("hidden");
-
-  document.getElementById("completionFlowName").textContent=p.name;
-  document.getElementById("completionFlowTotal").textContent=fmtHuman(elapsedMs(p));
-  document.getElementById("completionFlowSessions").textContent=`${(p.sessions||[]).length + (p.isRunning?1:0)} 次`;
-  document.getElementById("completionFlowDuration").textContent=projectDurationText({...p,completedAt:now(),isCompleted:true});
-  document.getElementById("completionDateInput").value=localDateInputValue(now());
-
-  openModal("completionFlowModal");
-}
-
-function checkLongSessionReminder(){
-  const p=state.activeProjectId?getProject(state.activeProjectId):null;
-  if(!p || !p.isRunning || !p.startedAt) return;
-
-  const currentMs=currentSessionMs(p);
-  if(currentMs < 3*3600000) return;
-
-  const key=`${p.id}:${p.startedAt}`;
-  if(longSessionReminderSeen.has(key)) return;
-
-  // 若正處理其他重要視窗，等下一秒再問；作品詳情可直接疊上提醒。
-  const top=modalStack.at(-1);
-  if(top && top!=="detailModal") return;
-
-  longSessionReminderSeen.add(key);
-  document.getElementById("longSessionReminderText").textContent=
-    `「${p.name}」這次已經計時 ${fmtHuman(currentMs)}。你還在製作嗎？`;
-  openModal("longSessionReminderModal");
-}
-
 function renderDetail(){
   if(!detailProjectId) return;
   const p=getProject(detailProjectId); if(!p){ closeModal("detailModal"); return; }
@@ -1872,6 +1722,7 @@ function renderDetail(){
   document.getElementById("detailCurrentSegment").textContent=fmt(currentSessionMs(p));
   document.getElementById("detailNote").textContent=p.note?.trim()||"—";
   renderDetailPhoto();
+  renderProgressCounter(p);
 
   document.getElementById("completionTitle").textContent=p.isCompleted?"已完成":"製作中";
   document.getElementById("completionText").textContent=p.isCompleted
@@ -1946,7 +1797,13 @@ function renderDetail(){
     ["使用線量",info.amount],
     ["材料成本",info.cost!==""&&info.cost!=null?`NT$ ${Number(info.cost).toLocaleString("zh-TW")}`:""],
     ["用途",info.purpose],
-    ["來源",info.source]
+    ["來源",info.source],
+    ["進度計數",(()=>{
+      const c=normalizedProgressCounter(p);
+      if(!c.enabled) return "";
+      const unit=progressCounterUnitText(c);
+      return c.target?`${c.value} / ${c.target} ${unit}`:`${c.value} ${unit}`;
+    })()]
   ].filter(([,v])=>String(v||"").trim());
   document.getElementById("projectInfoGrid").innerHTML=infoItems.length
     ? infoItems.map(([label,value])=>`<div class="project-info-item"><span>${escapeHTML(label)}</span><strong>${escapeHTML(String(value))}</strong></div>`).join("")
@@ -1954,7 +1811,7 @@ function renderDetail(){
 
   const currentMs=currentSessionMs(p);
   const longWarning=document.getElementById("longTimerWarning");
-  const showLong=p.isRunning && currentMs>=3*3600000;
+  const showLong=p.isRunning && currentMs>=4*3600000;
   longWarning.classList.toggle("hidden",!showLong);
   if(showLong){
     document.getElementById("longTimerWarningText").textContent=`本次已計時 ${fmtHuman(currentMs)}。如果其實早就停工，可以先暫停，再點製作紀錄修正。`;
@@ -2008,6 +1865,13 @@ function renderDetail(){
             <b>累積 ${fmt(l.totalMs)}</b>
           </div>
         </div>
+        ${l.progressSnapshot?`
+          <div class="milestone-progress-chip">
+            <span>進度</span>
+            <strong>${escapeHTML(String(l.progressSnapshot.value))} ${escapeHTML(l.progressSnapshot.unit||"")}</strong>
+            ${l.progressSnapshot.target?`<small>/ ${escapeHTML(String(l.progressSnapshot.target))}</small>`:""}
+          </div>
+        `:""}
         ${l.note?`<p class="timeline-note">${escapeHTML(l.note)}</p>`:""}
         <div class="timeline-photo-wrap">
           <img class="timeline-photo hidden" data-lap-photo-project="${p.id}" data-lap-photo-id="${l.id}" alt="進度照片">
@@ -2026,8 +1890,6 @@ function renderDetail(){
   }
 
   applyLapPhotos(p.id);
-  renderUnifiedJournal(p);
-  applyJournalMode(currentJournalMode);
   applyDetailTab(currentDetailTab);
 }
 
@@ -2157,7 +2019,7 @@ function updateDetailLiveOnly(){
   const warning=document.getElementById("longTimerWarning");
   if(warning){
     const currentMs=currentSessionMs(p);
-    const showLong=p.isRunning && currentMs>=3*3600000;
+    const showLong=p.isRunning && currentMs>=4*3600000;
     warning.classList.toggle("hidden",!showLong);
     if(showLong){
       const text=document.getElementById("longTimerWarningText");
@@ -2237,6 +2099,71 @@ document.querySelectorAll("[data-project-filter]").forEach(btn=>btn.onclick=()=>
   renderProjects();
 });
 
+
+function normalizedProgressCounter(p){
+  const raw=p?.projectInfo?.progressCounter||{};
+  return {
+    enabled:!!raw.enabled,
+    unit:["圈","行","段","片","自訂"].includes(raw.unit)?raw.unit:"圈",
+    customUnit:String(raw.customUnit||"").trim().slice(0,12),
+    target:Number.isFinite(Number(raw.target)) && Number(raw.target)>0 ? Math.floor(Number(raw.target)) : null,
+    step:[1,2,4,5,10].includes(Number(raw.step))?Number(raw.step):1,
+    value:Number.isFinite(Number(raw.value)) && Number(raw.value)>=0 ? Math.floor(Number(raw.value)) : 0
+  };
+}
+
+function progressCounterUnitText(counter){
+  if(counter.unit==="自訂") return counter.customUnit||"項";
+  return counter.unit||"圈";
+}
+
+function updateProjectCounterConfigVisibility(){
+  const enabled=document.getElementById("projectCounterEnabledInput").checked;
+  const unit=document.getElementById("projectCounterUnitInput").value;
+  document.getElementById("projectCounterConfigBody").classList.toggle("hidden",!enabled);
+  document.getElementById("projectCounterCustomUnitLabel").classList.toggle("hidden",unit!=="自訂");
+}
+
+function renderProgressCounter(p){
+  const section=document.getElementById("progressCounterSection");
+  if(!section) return;
+
+  const counter=normalizedProgressCounter(p);
+  section.classList.toggle("hidden",!counter.enabled);
+  if(!counter.enabled) return;
+
+  const unit=progressCounterUnitText(counter);
+  document.getElementById("progressCounterValue").textContent=counter.value;
+  document.getElementById("progressCounterUnit").textContent=unit;
+  document.getElementById("progressCounterStepSelect").value=String(counter.step);
+
+  const targetWrap=document.getElementById("progressCounterTargetWrap");
+  if(counter.target){
+    const pct=Math.max(0,Math.min(100,Math.round(counter.value/counter.target*100)));
+    targetWrap.classList.remove("hidden");
+    document.getElementById("progressCounterTargetText").textContent=`${counter.value} / ${counter.target} ${unit} · ${pct}%`;
+    document.getElementById("progressCounterBarFill").style.width=`${pct}%`;
+  }else{
+    targetWrap.classList.add("hidden");
+    document.getElementById("progressCounterBarFill").style.width="0%";
+  }
+
+  document.getElementById("progressCounterHint").textContent=
+    counter.target ? `目標 ${counter.target} ${unit}，目前做到第 ${counter.value} ${unit}。`
+                   : `目前做到第 ${counter.value} ${unit}，不影響工時計時。`;
+}
+
+function changeProgressCounter(delta){
+  const p=getProject(detailProjectId); if(!p) return;
+  const counter=normalizedProgressCounter(p);
+  if(!counter.enabled) return;
+
+  counter.value=Math.max(0,counter.value+delta*counter.step);
+  p.projectInfo.progressCounter=counter;
+  saveState();
+  renderProgressCounter(p);
+}
+
 function fillProjectModal(p=null){
   editingProjectId=p?.id||null;
   document.getElementById("projectModalTitle").textContent=p?"編輯作品資訊":"新增作品";
@@ -2251,18 +2178,39 @@ function fillProjectModal(p=null){
   document.getElementById("projectCostInput").value=info.cost??"";
   document.getElementById("projectPurposeInput").value=info.purpose||"";
   document.getElementById("projectSourceInput").value=info.source||"";
+
+  const counter=normalizedProgressCounter(p);
+  document.getElementById("projectCounterEnabledInput").checked=counter.enabled;
+  document.getElementById("projectCounterUnitInput").value=counter.unit;
+  document.getElementById("projectCounterCustomUnitInput").value=counter.customUnit;
+  document.getElementById("projectCounterTargetInput").value=counter.target??"";
+  document.getElementById("projectCounterStepInput").value=String(counter.step);
+  updateProjectCounterConfigVisibility();
+
   document.getElementById("projectPhotoInput").value="";
   setPendingProjectPhoto(null);
   document.getElementById("saveProjectBtn").textContent=p?"儲存修改":"儲存";
 }
 function readProjectInfoInputs(){
+  const existing=editingProjectId?normalizedProgressCounter(getProject(editingProjectId)):null;
+  const targetRaw=parseInt(document.getElementById("projectCounterTargetInput").value,10);
+  const stepRaw=parseInt(document.getElementById("projectCounterStepInput").value,10);
+
   return {
     needle:document.getElementById("projectNeedleInput").value.trim(),
     yarn:document.getElementById("projectYarnInput").value.trim(),
     amount:document.getElementById("projectAmountInput").value.trim(),
     cost:parseCost(document.getElementById("projectCostInput").value),
     purpose:document.getElementById("projectPurposeInput").value,
-    source:document.getElementById("projectSourceInput").value.trim()
+    source:document.getElementById("projectSourceInput").value.trim(),
+    progressCounter:{
+      enabled:document.getElementById("projectCounterEnabledInput").checked,
+      unit:document.getElementById("projectCounterUnitInput").value,
+      customUnit:document.getElementById("projectCounterCustomUnitInput").value.trim().slice(0,12),
+      target:Number.isFinite(targetRaw) && targetRaw>0 ? targetRaw : null,
+      step:[1,2,4,5,10].includes(stepRaw)?stepRaw:1,
+      value:existing?.value||0
+    }
   };
 }
 function openSessionModal(projectId,sessionId=null){
@@ -2301,6 +2249,10 @@ function updateSessionDurationPreview(){
 ["sessionDateInput","sessionStartInput","sessionEndInput"].forEach(id=>{
   document.getElementById(id).addEventListener("input",updateSessionDurationPreview);
 });
+
+document.getElementById("projectCounterEnabledInput").addEventListener("change",updateProjectCounterConfigVisibility);
+document.getElementById("projectCounterUnitInput").addEventListener("change",updateProjectCounterConfigVisibility);
+
 
 document.getElementById("addProjectBtn").onclick=()=>{
   fillProjectModal(null);
@@ -2592,10 +2544,34 @@ document.getElementById("deleteConfirmOkBtn").onclick=async()=>{
   renderAll();
 };
 
-document.getElementById("journalModeBar").onclick=(e)=>{
-  const btn=e.target.closest("[data-journal-mode]");
-  if(!btn) return;
-  applyJournalMode(btn.dataset.journalMode);
+
+document.getElementById("progressCounterMinusBtn").onclick=()=>changeProgressCounter(-1);
+document.getElementById("progressCounterPlusBtn").onclick=()=>changeProgressCounter(1);
+
+document.getElementById("progressCounterStepSelect").onchange=()=>{
+  const p=getProject(detailProjectId); if(!p) return;
+  const counter=normalizedProgressCounter(p);
+  const value=parseInt(document.getElementById("progressCounterStepSelect").value,10);
+  counter.step=[1,2,4,5,10].includes(value)?value:1;
+  p.projectInfo.progressCounter=counter;
+  saveState();
+  renderProgressCounter(p);
+};
+
+document.getElementById("progressCounterMilestoneBtn").onclick=()=>{
+  const p=getProject(detailProjectId); if(!p) return;
+  const counter=normalizedProgressCounter(p);
+  if(!counter.enabled) return;
+
+  const unit=progressCounterUnitText(counter);
+  beginLap(p.id,{
+    name:`第 ${counter.value} ${unit}`,
+    progressSnapshot:{
+      value:counter.value,
+      unit,
+      target:counter.target
+    }
+  });
 };
 
 document.getElementById("addLapFromSectionBtn").onclick=()=>{
@@ -2934,14 +2910,15 @@ document.getElementById("detailPhotoRemoveBtn").onclick=async()=>{
   }
 };
 
-function beginLap(id){
+function beginLap(id,options={}){
   const p=getProject(id); if(!p) return;
   pendingLapProjectId=id;
   pendingLapSnapshot={at:now(),totalMs:elapsedMs(p)};
+  pendingLapProgressSnapshot=options.progressSnapshot||null;
 
   const segmentMs=currentSessionMs(p);
 
-  document.getElementById("lapNameInput").value="";
+  document.getElementById("lapNameInput").value=options.name||"";
   document.getElementById("lapNoteInput").value="";
   document.getElementById("lapPhotoInput").value="";
   setPendingLapPhoto(null);
@@ -2949,39 +2926,6 @@ function beginLap(id){
   document.getElementById("lapSnapshotTotal").textContent=fmt(pendingLapSnapshot.totalMs);
   openModal("lapModal");
 }
-
-document.getElementById("longSessionContinueBtn").onclick=()=>{
-  closeModal("longSessionReminderModal");
-};
-
-document.getElementById("longSessionPauseBtn").onclick=()=>{
-  const p=state.activeProjectId?getProject(state.activeProjectId):null;
-  if(p && p.isRunning){
-    pauseProject(p);
-    saveState();
-    renderAll();
-  }
-  closeModal("longSessionReminderModal");
-};
-
-document.getElementById("longSessionFixBtn").onclick=()=>{
-  const p=state.activeProjectId?getProject(state.activeProjectId):null;
-  if(!p || !p.isRunning){
-    closeModal("longSessionReminderModal");
-    return;
-  }
-
-  pauseProject(p);
-  saveState();
-  renderAll();
-  closeModal("longSessionReminderModal");
-
-  const latest=(p.sessions||[]).slice().sort((a,b)=>(b.endedAt||0)-(a.endedAt||0))[0];
-  if(latest){
-    detailProjectId=p.id;
-    openSessionModal(p.id,latest.id);
-  }
-};
 
 document.getElementById("longTimerPauseBtn").onclick=()=>{
   const p=getProject(detailProjectId); if(!p || !p.isRunning) return;
@@ -3036,7 +2980,10 @@ document.getElementById("saveLapBtn").onclick=async()=>{
     ? (p.laps[p.laps.length-1].totalMs||0)
     : (p.lapBaselineMs||0);
   const segmentMs=Math.max(0,snapshot.totalMs-previousBoundary);
-  const lap={id:uuid(),name,note,at:snapshot.at,totalMs:snapshot.totalMs,segmentMs};
+  const lap={
+    id:uuid(),name,note,at:snapshot.at,totalMs:snapshot.totalMs,segmentMs,
+    progressSnapshot:pendingLapProgressSnapshot?{...pendingLapProgressSnapshot}:null
+  };
   p.laps.push(lap);
   saveState();
 
@@ -3061,6 +3008,7 @@ document.getElementById("saveLapBtn").onclick=async()=>{
   latestAlbumBlobs=[];
   resumeMediaItems=[];
   pendingLapSnapshot=null;
+  pendingLapProgressSnapshot=null;
   pendingLapProjectId=null;
   setPendingLapPhoto(null);
   closeModal("lapModal");
@@ -3108,90 +3056,23 @@ document.getElementById("saveSellerPricingBtn").onclick=()=>{
 
 document.getElementById("toggleCompleteBtn").onclick=()=>{
   const p=getProject(detailProjectId); if(!p) return;
-
   if(!p.isCompleted){
-    openCompletionFlow(p.id);
-    return;
+    if(p.isRunning) pauseProject(p);
+    p.isCompleted=true;
+    p.completedAt=now();
+    p.lastWorkedAt=p.completedAt;
+    if(state.currentProjectId===p.id) state.currentProjectId=null;
+    if(state.activeProjectId===p.id) state.activeProjectId=null;
+  }else{
+    p.isCompleted=false;
+    p.completedAt=null;
   }
-
-  // 已完成作品改回製作中：維持輕量操作。
-  p.isCompleted=false;
-  p.completedAt=null;
   latestResumeBlob=null;
   latestResumeProjectId=null;
   saveState();
   renderAll();
 };
 
-
-
-document.getElementById("completionPhotoBtn").onclick=()=>document.getElementById("completionPhotoInput").click();
-document.getElementById("completionPhotoInput").onchange=(e)=>{
-  const file=e.target.files?.[0];
-  if(file) setCompletionPhoto(file);
-};
-document.getElementById("clearCompletionPhotoBtn").onclick=()=>resetCompletionPhoto();
-
-document.getElementById("confirmCompleteBtn").onclick=async()=>{
-  const p=getProject(detailProjectId); if(!p || p.isCompleted) return;
-
-  const btn=document.getElementById("confirmCompleteBtn");
-  btn.disabled=true;
-  btn.textContent="正在完成…";
-
-  try{
-    if(p.isRunning) pauseProject(p);
-
-    const date=document.getElementById("completionDateInput").value;
-    let completedAt=now();
-    if(date){
-      const selected=combineLocalDateTime(date,localTimeInputValue(now()));
-      if(selected!=null) completedAt=Math.min(selected,now());
-    }
-
-    p.isCompleted=true;
-    p.completedAt=completedAt;
-    p.lastWorkedAt=completedAt;
-
-    if(state.currentProjectId===p.id) state.currentProjectId=null;
-    if(state.activeProjectId===p.id) state.activeProjectId=null;
-
-    if(pendingCompletionPhotoFile){
-      const blob=await compressPhoto(pendingCompletionPhotoFile);
-      await putProjectPhoto(p.id,blob);
-    }
-
-    latestResumeBlob=null;
-    latestResumeProjectId=null;
-    saveState();
-    renderAll();
-
-    document.getElementById("completionSuccessName").textContent=p.name;
-    document.getElementById("completionSuccessTotal").textContent=fmtHuman(elapsedMs(p));
-    document.getElementById("completionSuccessSessions").textContent=`${(p.sessions||[]).length} 次`;
-    document.getElementById("completionSuccessDuration").textContent=projectDurationText(p);
-
-    document.getElementById("completionFormStep").classList.add("hidden");
-    document.getElementById("completionSuccessStep").classList.remove("hidden");
-  }catch(err){
-    console.error(err);
-    alert("完成作品時發生問題，請再試一次。");
-  }finally{
-    btn.disabled=false;
-    btn.textContent="完成作品";
-  }
-};
-
-document.getElementById("completionDoneBtn").onclick=()=>{
-  resetCompletionPhoto();
-  closeModal("completionFlowModal");
-};
-
-document.getElementById("completionReviewBtn").onclick=()=>{
-  resetCompletionPhoto();
-  closeModal("completionFlowModal");
-  switchMainView("recap");
-};
 
 document.getElementById("resumeCardBtn").onclick=async()=>{
   const p=getProject(detailProjectId); if(!p || !p.isCompleted) return;
@@ -3712,13 +3593,15 @@ setInterval(()=>{
   // v18.1: 不再每秒重畫整個作品詳情，避免輸入框、捲動位置被重設。
   updateDetailLiveOnly();
   updateHomeActiveLiveOnly();
-  checkLongSessionReminder();
 },1000);
 
 document.addEventListener("visibilitychange", ()=>{
   if(!document.hidden){
     renderAll();
-    checkLongSessionReminder();
+    const p=state.activeProjectId?getProject(state.activeProjectId):null;
+    if(p && currentSessionMs(p)>=4*3600000){
+      console.warn("YarnTime: long running session",p.name,fmtHuman(currentSessionMs(p)));
+    }
   }
 });
 
