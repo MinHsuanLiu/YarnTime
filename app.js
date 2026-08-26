@@ -20,6 +20,7 @@ let latestRecapProjectId = null;
 let latestRecapUrl = null;
 let editingProjectId = null;
 let editingSessionId = null;
+let editingProgressStages = [];
 const sessionVisibleByProject = new Map();
 const lapVisibleByProject = new Map();
 let resumeMediaItems = [];
@@ -40,18 +41,24 @@ function loadState(){
       if(!Array.isArray(p.sessions)) p.sessions=[];
       if(!p.projectInfo || typeof p.projectInfo!=="object") p.projectInfo={};
       const oldCounter=p.projectInfo.progressCounter;
-      if(!oldCounter || typeof oldCounter!=="object"){
-        p.projectInfo.progressCounter={enabled:false,unit:"圈",customUnit:"",target:null,step:1,value:0};
-      }else{
-        p.projectInfo.progressCounter={
-          enabled:!!oldCounter.enabled,
-          unit:["圈","行","段","片","自訂"].includes(oldCounter.unit)?oldCounter.unit:"圈",
-          customUnit:String(oldCounter.customUnit||"").slice(0,12),
-          target:Number.isFinite(Number(oldCounter.target)) && Number(oldCounter.target)>0 ? Math.floor(Number(oldCounter.target)) : null,
-          step:[1,2,4,5,10].includes(Number(oldCounter.step))?Number(oldCounter.step):1,
-          value:Number.isFinite(Number(oldCounter.value)) && Number(oldCounter.value)>=0 ? Math.floor(Number(oldCounter.value)) : 0
-        };
+      if(!p.projectInfo.progressPlan || typeof p.projectInfo.progressPlan!=="object"){
+        if(oldCounter && typeof oldCounter==="object" && oldCounter.enabled){
+          const migratedStage={
+            id:oldCounter.id||("stage_"+Math.random().toString(36).slice(2,9)),
+            name:"主要進度",
+            unit:["圈","行","段","片","自訂"].includes(oldCounter.unit)?oldCounter.unit:"圈",
+            customUnit:String(oldCounter.customUnit||"").slice(0,12),
+            target:Number(oldCounter.target)>0?Math.floor(Number(oldCounter.target)):null,
+            step:[1,2,4,5,10].includes(Number(oldCounter.step))?Number(oldCounter.step):1,
+            value:Number(oldCounter.value)>=0?Math.floor(Number(oldCounter.value)):0,
+            completed:false
+          };
+          p.projectInfo.progressPlan={enabled:true,activeStageId:migratedStage.id,stages:[migratedStage]};
+        }else{
+          p.projectInfo.progressPlan={enabled:false,activeStageId:null,stages:[]};
+        }
       }
+      if(p.projectInfo.progressCounter) delete p.projectInfo.progressCounter;
       if(!p.sellerPricing || typeof p.sellerPricing!=="object") p.sellerPricing={};
       if(!("valueAdd" in p.sellerPricing)) p.sellerPricing.valueAdd=null;
       if(!Array.isArray(p.laps)) p.laps=[];
@@ -1552,6 +1559,7 @@ function renderActive(){
       img.dataset.noPhoto="";
       img.removeAttribute("src");
     }
+    document.getElementById("homeProgressCounter")?.classList.add("hidden");
     return;
   }
 
@@ -1593,6 +1601,7 @@ function renderActive(){
     action.textContent="繼續製作";
   }
 
+  renderHomeProgressCounter(p);
   renderActiveProjectPhoto(p);
 }
 
@@ -1798,11 +1807,12 @@ function renderDetail(){
     ["材料成本",info.cost!==""&&info.cost!=null?`NT$ ${Number(info.cost).toLocaleString("zh-TW")}`:""],
     ["用途",info.purpose],
     ["來源",info.source],
-    ["進度計數",(()=>{
-      const c=normalizedProgressCounter(p);
-      if(!c.enabled) return "";
-      const unit=progressCounterUnitText(c);
-      return c.target?`${c.value} / ${c.target} ${unit}`:`${c.value} ${unit}`;
+    ["進度段落",(()=>{
+      const {plan,stage,index}=activeProgressStage(p);
+      if(!plan.enabled) return "";
+      if(!stage) return `${plan.stages.length} 段 · 全部完成`;
+      const unit=progressStageUnitText(stage);
+      return `${stage.name} · ${stage.value}${stage.target?` / ${stage.target}`:""} ${unit} · 第 ${index+1}/${plan.stages.length} 段`;
     })()]
   ].filter(([,v])=>String(v||"").trim());
   document.getElementById("projectInfoGrid").innerHTML=infoItems.length
@@ -1867,7 +1877,7 @@ function renderDetail(){
         </div>
         ${l.progressSnapshot?`
           <div class="milestone-progress-chip">
-            <span>進度</span>
+            <span>${escapeHTML(l.progressSnapshot.stageName||"進度")}</span>
             <strong>${escapeHTML(String(l.progressSnapshot.value))} ${escapeHTML(l.progressSnapshot.unit||"")}</strong>
             ${l.progressSnapshot.target?`<small>/ ${escapeHTML(String(l.progressSnapshot.target))}</small>`:""}
           </div>
@@ -2100,68 +2110,151 @@ document.querySelectorAll("[data-project-filter]").forEach(btn=>btn.onclick=()=>
 });
 
 
-function normalizedProgressCounter(p){
-  const raw=p?.projectInfo?.progressCounter||{};
+
+function makeStage(data={}){
   return {
-    enabled:!!raw.enabled,
-    unit:["圈","行","段","片","自訂"].includes(raw.unit)?raw.unit:"圈",
-    customUnit:String(raw.customUnit||"").trim().slice(0,12),
-    target:Number.isFinite(Number(raw.target)) && Number(raw.target)>0 ? Math.floor(Number(raw.target)) : null,
-    step:[1,2,4,5,10].includes(Number(raw.step))?Number(raw.step):1,
-    value:Number.isFinite(Number(raw.value)) && Number(raw.value)>=0 ? Math.floor(Number(raw.value)) : 0
+    id:data.id||("stage_"+uuid()),
+    name:String(data.name||"").trim().slice(0,30)||"新段落",
+    unit:["圈","行","段","片","自訂"].includes(data.unit)?data.unit:"圈",
+    customUnit:String(data.customUnit||"").trim().slice(0,12),
+    target:Number(data.target)>0?Math.floor(Number(data.target)):null,
+    step:[1,2,4,5,10].includes(Number(data.step))?Number(data.step):1,
+    value:Number(data.value)>=0?Math.floor(Number(data.value)):0,
+    completed:!!data.completed
   };
 }
-
-function progressCounterUnitText(counter){
-  if(counter.unit==="自訂") return counter.customUnit||"項";
-  return counter.unit||"圈";
+function normalizedProgressPlan(p){
+  const raw=p?.projectInfo?.progressPlan||{};
+  const stages=Array.isArray(raw.stages)?raw.stages.map(makeStage):[];
+  let activeStageId=raw.activeStageId||null;
+  if(activeStageId && !stages.some(s=>s.id===activeStageId && !s.completed)) activeStageId=null;
+  if(!activeStageId) activeStageId=stages.find(s=>!s.completed)?.id||null;
+  return {enabled:!!raw.enabled,activeStageId,stages};
 }
-
+function activeProgressStage(p){
+  const plan=normalizedProgressPlan(p);
+  if(!plan.enabled) return {plan,stage:null,index:-1};
+  const index=plan.stages.findIndex(s=>s.id===plan.activeStageId && !s.completed);
+  return {plan,stage:index>=0?plan.stages[index]:null,index};
+}
+function progressStageUnitText(stage){
+  return stage?.unit==="自訂"?(stage.customUnit||"項"):(stage?.unit||"圈");
+}
+function saveProgressPlan(p,plan){
+  p.projectInfo=p.projectInfo||{};
+  p.projectInfo.progressPlan={enabled:!!plan.enabled,activeStageId:plan.activeStageId||null,stages:(plan.stages||[]).map(makeStage)};
+}
+function renderProjectStageEditor(){
+  const list=document.getElementById("projectStageEditorList"); if(!list) return;
+  list.innerHTML=editingProgressStages.map((stage,index)=>`
+    <article class="project-stage-editor" data-stage-editor-id="${stage.id}">
+      <div class="project-stage-editor-head">
+        <span>第 ${index+1} 段</span>
+        <button type="button" data-remove-stage="${stage.id}" ${editingProgressStages.length<=1?"disabled":""}>移除</button>
+      </div>
+      <label>段落名稱
+        <input data-stage-field="name" maxlength="30" value="${escapeHTML(stage.name)}" placeholder="例如：衣身、左袖、領口" />
+      </label>
+      <div class="project-stage-editor-grid">
+        <label>單位
+          <select data-stage-field="unit">
+            ${["圈","行","段","片","自訂"].map(u=>`<option value="${u}" ${stage.unit===u?"selected":""}>${u}</option>`).join("")}
+          </select>
+        </label>
+        <label class="${stage.unit==="自訂"?"":"hidden"}" data-custom-unit-wrap>自訂單位
+          <input data-stage-field="customUnit" maxlength="12" value="${escapeHTML(stage.customUnit||"")}" />
+        </label>
+        <label>目標數量
+          <input data-stage-field="target" inputmode="numeric" value="${stage.target??""}" placeholder="選填" />
+        </label>
+        <label>每次加減
+          <select data-stage-field="step">${[1,2,4,5,10].map(n=>`<option value="${n}" ${stage.step===n?"selected":""}>${n}</option>`).join("")}</select>
+        </label>
+      </div>
+      ${stage.value>0?`<small class="stage-existing-progress">目前已記錄 ${stage.value} ${escapeHTML(progressStageUnitText(stage))}</small>`:""}
+    </article>
+  `).join("");
+}
+function syncEditingStagesFromDom(){
+  document.querySelectorAll("#projectStageEditorList [data-stage-editor-id]").forEach(card=>{
+    const stage=editingProgressStages.find(s=>s.id===card.dataset.stageEditorId); if(!stage) return;
+    stage.name=card.querySelector('[data-stage-field="name"]').value.trim()||"新段落";
+    stage.unit=card.querySelector('[data-stage-field="unit"]').value;
+    stage.customUnit=card.querySelector('[data-stage-field="customUnit"]').value.trim();
+    const target=parseInt(card.querySelector('[data-stage-field="target"]').value,10);
+    stage.target=Number.isFinite(target)&&target>0?target:null;
+    const step=parseInt(card.querySelector('[data-stage-field="step"]').value,10);
+    stage.step=[1,2,4,5,10].includes(step)?step:1;
+  });
+}
 function updateProjectCounterConfigVisibility(){
   const enabled=document.getElementById("projectCounterEnabledInput").checked;
-  const unit=document.getElementById("projectCounterUnitInput").value;
   document.getElementById("projectCounterConfigBody").classList.toggle("hidden",!enabled);
-  document.getElementById("projectCounterCustomUnitLabel").classList.toggle("hidden",unit!=="自訂");
+  if(enabled && !editingProgressStages.length){
+    editingProgressStages=[makeStage({name:"主要進度"})];
+    renderProjectStageEditor();
+  }
 }
-
 function renderProgressCounter(p){
-  const section=document.getElementById("progressCounterSection");
-  if(!section) return;
-
-  const counter=normalizedProgressCounter(p);
-  section.classList.toggle("hidden",!counter.enabled);
-  if(!counter.enabled) return;
-
-  const unit=progressCounterUnitText(counter);
-  document.getElementById("progressCounterValue").textContent=counter.value;
+  const section=document.getElementById("progressCounterSection"); if(!section) return;
+  const {plan,stage,index}=activeProgressStage(p);
+  section.classList.toggle("hidden",!plan.enabled);
+  if(!plan.enabled) return;
+  const done=document.getElementById("progressAllStagesDone");
+  const card=document.querySelector("#progressCounterSection .progress-counter-card");
+  const foot=document.querySelector("#progressCounterSection .progress-counter-foot");
+  const milestoneBtn=document.getElementById("progressCounterMilestoneBtn");
+  if(!stage){
+    card.classList.add("hidden"); foot.classList.add("hidden"); milestoneBtn.classList.add("hidden"); done.classList.remove("hidden");
+    document.getElementById("progressStageName").textContent="全部完成";
+    document.getElementById("progressStagePosition").textContent=`共 ${plan.stages.length} 段`;
+    document.getElementById("progressCounterHint").textContent="所有設定的進度段落都完成了。";
+    return;
+  }
+  card.classList.remove("hidden"); foot.classList.remove("hidden"); milestoneBtn.classList.remove("hidden"); done.classList.add("hidden");
+  const unit=progressStageUnitText(stage);
+  document.getElementById("progressStageName").textContent=stage.name;
+  document.getElementById("progressStagePosition").textContent=`第 ${index+1} / ${plan.stages.length} 段`;
+  document.getElementById("progressCounterValue").textContent=stage.value;
   document.getElementById("progressCounterUnit").textContent=unit;
-  document.getElementById("progressCounterStepSelect").value=String(counter.step);
-
-  const targetWrap=document.getElementById("progressCounterTargetWrap");
-  if(counter.target){
-    const pct=Math.max(0,Math.min(100,Math.round(counter.value/counter.target*100)));
-    targetWrap.classList.remove("hidden");
-    document.getElementById("progressCounterTargetText").textContent=`${counter.value} / ${counter.target} ${unit} · ${pct}%`;
+  document.getElementById("progressCounterStepSelect").value=String(stage.step);
+  const wrap=document.getElementById("progressCounterTargetWrap");
+  if(stage.target){
+    const pct=Math.max(0,Math.min(100,Math.round(stage.value/stage.target*100)));
+    wrap.classList.remove("hidden");
+    document.getElementById("progressCounterTargetText").textContent=`${stage.value} / ${stage.target} ${unit} · ${pct}%`;
     document.getElementById("progressCounterBarFill").style.width=`${pct}%`;
   }else{
-    targetWrap.classList.add("hidden");
+    wrap.classList.add("hidden");
     document.getElementById("progressCounterBarFill").style.width="0%";
   }
-
-  document.getElementById("progressCounterHint").textContent=
-    counter.target ? `目標 ${counter.target} ${unit}，目前做到第 ${counter.value} ${unit}。`
-                   : `目前做到第 ${counter.value} ${unit}，不影響工時計時。`;
+  document.getElementById("progressCounterHint").textContent=stage.target?`${stage.name} · 目標 ${stage.target} ${unit}`:`${stage.name} · 目前 ${stage.value} ${unit}`;
 }
-
-function changeProgressCounter(delta){
-  const p=getProject(detailProjectId); if(!p) return;
-  const counter=normalizedProgressCounter(p);
-  if(!counter.enabled) return;
-
-  counter.value=Math.max(0,counter.value+delta*counter.step);
-  p.projectInfo.progressCounter=counter;
-  saveState();
-  renderProgressCounter(p);
+function renderHomeProgressCounter(p){
+  const section=document.getElementById("homeProgressCounter"); if(!section) return;
+  const {plan,stage}=activeProgressStage(p);
+  const show=!!(p&&!p.isCompleted&&plan.enabled&&stage);
+  section.classList.toggle("hidden",!show);
+  if(!show) return;
+  const unit=progressStageUnitText(stage);
+  document.getElementById("homeProgressStageName").textContent=stage.name;
+  document.getElementById("homeProgressValue").textContent=stage.value;
+  document.getElementById("homeProgressUnit").textContent=unit;
+  document.getElementById("homeProgressTarget").textContent=stage.target?`/ ${stage.target}`:"";
+}
+function changeProgressStage(projectId,delta){
+  const p=getProject(projectId); if(!p) return;
+  const {plan,stage,index}=activeProgressStage(p); if(!plan.enabled||!stage) return;
+  stage.value=Math.max(0,stage.value+delta*stage.step);
+  plan.stages[index]=stage; saveProgressPlan(p,plan); saveState();
+  if(detailProjectId===p.id) renderProgressCounter(p);
+  if(state.currentProjectId===p.id) renderHomeProgressCounter(p);
+}
+function completeActiveProgressStage(p){
+  const {plan,stage,index}=activeProgressStage(p); if(!plan.enabled||!stage) return;
+  plan.stages[index].completed=true;
+  plan.activeStageId=plan.stages.find((s,i)=>i>index&&!s.completed)?.id || plan.stages.find(s=>!s.completed)?.id || null;
+  saveProgressPlan(p,plan); saveState(); renderAll();
 }
 
 function fillProjectModal(p=null){
@@ -2179,12 +2272,10 @@ function fillProjectModal(p=null){
   document.getElementById("projectPurposeInput").value=info.purpose||"";
   document.getElementById("projectSourceInput").value=info.source||"";
 
-  const counter=normalizedProgressCounter(p);
-  document.getElementById("projectCounterEnabledInput").checked=counter.enabled;
-  document.getElementById("projectCounterUnitInput").value=counter.unit;
-  document.getElementById("projectCounterCustomUnitInput").value=counter.customUnit;
-  document.getElementById("projectCounterTargetInput").value=counter.target??"";
-  document.getElementById("projectCounterStepInput").value=String(counter.step);
+  const plan=normalizedProgressPlan(p);
+  document.getElementById("projectCounterEnabledInput").checked=plan.enabled;
+  editingProgressStages=plan.stages.length?plan.stages.map(s=>({...s})):[makeStage({name:"主要進度"})];
+  renderProjectStageEditor();
   updateProjectCounterConfigVisibility();
 
   document.getElementById("projectPhotoInput").value="";
@@ -2192,9 +2283,12 @@ function fillProjectModal(p=null){
   document.getElementById("saveProjectBtn").textContent=p?"儲存修改":"儲存";
 }
 function readProjectInfoInputs(){
-  const existing=editingProjectId?normalizedProgressCounter(getProject(editingProjectId)):null;
-  const targetRaw=parseInt(document.getElementById("projectCounterTargetInput").value,10);
-  const stepRaw=parseInt(document.getElementById("projectCounterStepInput").value,10);
+  syncEditingStagesFromDom();
+  const existing=editingProjectId?normalizedProgressPlan(getProject(editingProjectId)):null;
+  const enabled=document.getElementById("projectCounterEnabledInput").checked;
+  const stages=editingProgressStages.map(makeStage);
+  let activeStageId=existing?.activeStageId||null;
+  if(!stages.some(s=>s.id===activeStageId&&!s.completed)) activeStageId=stages.find(s=>!s.completed)?.id||null;
 
   return {
     needle:document.getElementById("projectNeedleInput").value.trim(),
@@ -2203,14 +2297,7 @@ function readProjectInfoInputs(){
     cost:parseCost(document.getElementById("projectCostInput").value),
     purpose:document.getElementById("projectPurposeInput").value,
     source:document.getElementById("projectSourceInput").value.trim(),
-    progressCounter:{
-      enabled:document.getElementById("projectCounterEnabledInput").checked,
-      unit:document.getElementById("projectCounterUnitInput").value,
-      customUnit:document.getElementById("projectCounterCustomUnitInput").value.trim().slice(0,12),
-      target:Number.isFinite(targetRaw) && targetRaw>0 ? targetRaw : null,
-      step:[1,2,4,5,10].includes(stepRaw)?stepRaw:1,
-      value:existing?.value||0
-    }
+    progressPlan:{enabled,activeStageId,stages}
   };
 }
 function openSessionModal(projectId,sessionId=null){
@@ -2251,7 +2338,21 @@ function updateSessionDurationPreview(){
 });
 
 document.getElementById("projectCounterEnabledInput").addEventListener("change",updateProjectCounterConfigVisibility);
-document.getElementById("projectCounterUnitInput").addEventListener("change",updateProjectCounterConfigVisibility);
+document.getElementById("addProjectStageBtn").onclick=()=>{
+  syncEditingStagesFromDom();
+  editingProgressStages.push(makeStage({name:`第 ${editingProgressStages.length+1} 段`}));
+  renderProjectStageEditor();
+};
+document.getElementById("projectStageEditorList").addEventListener("click",(e)=>{
+  const btn=e.target.closest("[data-remove-stage]"); if(!btn) return;
+  syncEditingStagesFromDom();
+  if(editingProgressStages.length<=1) return;
+  editingProgressStages=editingProgressStages.filter(s=>s.id!==btn.dataset.removeStage);
+  renderProjectStageEditor();
+});
+document.getElementById("projectStageEditorList").addEventListener("change",(e)=>{
+  if(e.target.matches('[data-stage-field="unit"]')){ syncEditingStagesFromDom(); renderProjectStageEditor(); }
+});
 
 
 document.getElementById("addProjectBtn").onclick=()=>{
@@ -2545,33 +2646,31 @@ document.getElementById("deleteConfirmOkBtn").onclick=async()=>{
 };
 
 
-document.getElementById("progressCounterMinusBtn").onclick=()=>changeProgressCounter(-1);
-document.getElementById("progressCounterPlusBtn").onclick=()=>changeProgressCounter(1);
+document.getElementById("progressCounterMinusBtn").onclick=()=>{ if(detailProjectId) changeProgressStage(detailProjectId,-1); };
+document.getElementById("progressCounterPlusBtn").onclick=()=>{ if(detailProjectId) changeProgressStage(detailProjectId,1); };
+document.getElementById("homeProgressMinusBtn").onclick=()=>{ if(state.currentProjectId) changeProgressStage(state.currentProjectId,-1); };
+document.getElementById("homeProgressPlusBtn").onclick=()=>{ if(state.currentProjectId) changeProgressStage(state.currentProjectId,1); };
 
 document.getElementById("progressCounterStepSelect").onchange=()=>{
   const p=getProject(detailProjectId); if(!p) return;
-  const counter=normalizedProgressCounter(p);
+  const {plan,stage,index}=activeProgressStage(p); if(!stage) return;
   const value=parseInt(document.getElementById("progressCounterStepSelect").value,10);
-  counter.step=[1,2,4,5,10].includes(value)?value:1;
-  p.projectInfo.progressCounter=counter;
-  saveState();
+  stage.step=[1,2,4,5,10].includes(value)?value:1;
+  plan.stages[index]=stage; saveProgressPlan(p,plan); saveState();
   renderProgressCounter(p);
+  if(state.currentProjectId===p.id) renderHomeProgressCounter(p);
 };
-
 document.getElementById("progressCounterMilestoneBtn").onclick=()=>{
   const p=getProject(detailProjectId); if(!p) return;
-  const counter=normalizedProgressCounter(p);
-  if(!counter.enabled) return;
-
-  const unit=progressCounterUnitText(counter);
-  beginLap(p.id,{
-    name:`第 ${counter.value} ${unit}`,
-    progressSnapshot:{
-      value:counter.value,
-      unit,
-      target:counter.target
-    }
-  });
+  const {stage}=activeProgressStage(p); if(!stage) return;
+  const unit=progressStageUnitText(stage);
+  beginLap(p.id,{name:`${stage.name} · 第 ${stage.value} ${unit}`,progressSnapshot:{stageName:stage.name,value:stage.value,unit,target:stage.target}});
+};
+document.getElementById("progressStageCompleteBtn").onclick=()=>{ const p=getProject(detailProjectId); if(p) completeActiveProgressStage(p); };
+document.getElementById("progressAddNextStageBtn").onclick=()=>{
+  const p=getProject(detailProjectId); if(!p) return;
+  fillProjectModal(p); openModal("projectModal");
+  setTimeout(()=>document.getElementById("projectCounterConfigBody")?.scrollIntoView({behavior:"smooth",block:"start"}),120);
 };
 
 document.getElementById("addLapFromSectionBtn").onclick=()=>{
@@ -3522,7 +3621,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:25,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:26,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);

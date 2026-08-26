@@ -3824,3 +3824,62 @@ body.modal-open .modal-backdrop{
     grid-template-columns:1fr;
   }
 }
+
+
+/* =========================================================
+   v26 — Multi-stage progress plan
+   ========================================================= */
+.project-stage-editor-list{display:grid;gap:10px;margin-top:10px;}
+.project-stage-editor{padding:12px;border:1px solid #E4D6C8;border-radius:14px;background:#FFFDF9;}
+.project-stage-editor-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}
+.project-stage-editor-head span{font-size:8px;font-weight:800;color:var(--yt-orange);}
+.project-stage-editor-head button{border:0;background:transparent;color:#A25A4D;font-size:8px;font-weight:750;}
+.project-stage-editor-head button:disabled{opacity:.3;}
+.project-stage-editor-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
+.project-stage-editor-grid .hidden{display:none!important;}
+.stage-existing-progress{display:block;margin-top:8px;font-size:7.5px;color:#A18C7A;}
+.stage-add-btn{width:100%;min-height:40px;margin-top:10px;border:1px dashed #D7C3AF;border-radius:12px;background:transparent;color:var(--yt-orange-deep);font-size:9px;font-weight:800;}
+.stage-plan-intro{margin:0 0 8px!important;font-size:8px!important;color:#9A8776!important;}
+
+.progress-stage-meta{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:7px 0 3px;padding:0 2px;}
+.progress-stage-meta span{display:block;font-size:7.5px;color:#9A8675;}
+.progress-stage-meta strong{display:block;margin-top:2px;font-size:14px;}
+.progress-stage-meta small{font-size:8px;color:#A18C7A;}
+.stage-complete-btn{min-height:34px;padding:0 11px;border:1px solid #D9C7B6;border-radius:10px;background:#FFF9F2;color:var(--yt-orange-deep);font-size:8px;font-weight:800;}
+.progress-all-done{margin-top:10px;padding:13px;border:1px dashed #D9C6B4;border-radius:13px;text-align:center;}
+.progress-all-done.hidden{display:none!important;}
+.progress-all-done strong{display:block;font-size:10px;}
+.progress-all-done button{margin-top:8px;border:0;background:transparent;color:var(--yt-orange);font-size:9px;font-weight:850;}
+
+.home-progress-counter{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px;padding:10px 12px;border:1px solid #E5D6C7;border-radius:14px;background:#F7EEE4;}
+.home-progress-counter.hidden{display:none!important;}
+.home-progress-copy{min-width:0;}
+.home-progress-copy>span{display:block;font-size:7.5px;color:#947F6E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.home-progress-copy>span b{color:#715F52;}
+.home-progress-copy>div{display:flex;align-items:baseline;gap:4px;margin-top:2px;}
+.home-progress-copy strong{font-family:"Nunito","PingFang TC","Microsoft JhengHei",sans-serif;font-size:21px;color:var(--yt-orange-deep);line-height:1;font-variant-numeric:tabular-nums;}
+.home-progress-copy small{font-size:9px;font-weight:800;color:#6F5E51;}
+.home-progress-copy em{font-style:normal;font-size:8px;color:#A28D7B;}
+.home-progress-actions{display:grid;grid-template-columns:42px 42px;gap:7px;flex:0 0 auto;}
+
+/* 真正置中 + / - */
+.home-progress-actions button,
+.progress-counter-btn{
+  padding:0!important;
+  margin:0!important;
+  display:grid!important;
+  place-items:center!important;
+  text-align:center!important;
+  line-height:1!important;
+  text-indent:0!important;
+  font-family:"Nunito","PingFang TC","Microsoft JhengHei",sans-serif!important;
+}
+.home-progress-actions button{width:42px;height:42px;border:1px solid #D9C6B5;border-radius:12px;background:#FFF9F2;color:#6C5A4D;font-size:24px;font-weight:600;}
+.home-progress-actions button:last-child{border-color:var(--yt-orange);background:var(--yt-orange);color:#FFF;}
+.progress-counter-btn{align-items:center!important;justify-items:center!important;}
+
+@media(max-width:390px){
+  .project-stage-editor-grid{grid-template-columns:1fr;}
+  .home-progress-actions{grid-template-columns:38px 38px;}
+  .home-progress-actions button{width:38px;height:38px;}
+}

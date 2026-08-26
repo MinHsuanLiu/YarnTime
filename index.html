@@ -74,6 +74,17 @@
             </div>
           </div>
 
+          <section id="homeProgressCounter" class="home-progress-counter hidden">
+            <div class="home-progress-copy">
+              <span>目前進度 · <b id="homeProgressStageName">—</b></span>
+              <div><strong id="homeProgressValue">0</strong><small id="homeProgressUnit">圈</small><em id="homeProgressTarget"></em></div>
+            </div>
+            <div class="home-progress-actions">
+              <button id="homeProgressMinusBtn" type="button" aria-label="進度減少">−</button>
+              <button id="homeProgressPlusBtn" type="button" aria-label="進度增加">＋</button>
+            </div>
+          </section>
+
           <div class="active-actions">
             <button id="pauseActiveBtn" class="primary-btn">暫停</button>
             <button id="lapActiveBtn" class="secondary-btn">
@@ -245,7 +256,7 @@
         </button>
       </div>
 
-      <div class="menu-version">YarnTime v25</div>
+      <div class="menu-version">YarnTime v26</div>
     </div>
   </div>
 
@@ -336,46 +347,18 @@
       <section class="counter-config-card">
         <div class="counter-config-top">
           <div>
-            <strong>進度計數</strong>
-            <small>選填，例如第幾圈、第幾行</small>
+            <strong>進度段落</strong>
+            <small>選填，可先設定衣身、袖子、領口等多個階段</small>
           </div>
           <label class="counter-switch">
             <input id="projectCounterEnabledInput" type="checkbox" />
             <span aria-hidden="true"></span>
           </label>
         </div>
-
         <div id="projectCounterConfigBody" class="counter-config-body hidden">
-          <div class="counter-config-grid">
-            <label>單位
-              <select id="projectCounterUnitInput">
-                <option value="圈">圈</option>
-                <option value="行">行</option>
-                <option value="段">段</option>
-                <option value="片">片</option>
-                <option value="自訂">自訂</option>
-              </select>
-            </label>
-
-            <label id="projectCounterCustomUnitLabel" class="hidden">自訂單位
-              <input id="projectCounterCustomUnitInput" maxlength="12" placeholder="例如：花樣" />
-            </label>
-
-            <label>目標數量
-              <input id="projectCounterTargetInput" inputmode="numeric" maxlength="6" placeholder="選填，例如：80" />
-            </label>
-
-            <label>每次加減
-              <select id="projectCounterStepInput">
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-                <option value="10">10</option>
-              </select>
-            </label>
-          </div>
-          <p>啟用後，作品日誌會出現快速 ＋／－ 計數卡。不影響工時計時。</p>
+          <p class="stage-plan-intro">每一段都可以設定自己的名稱、單位、目標與加減步進。</p>
+          <div id="projectStageEditorList" class="project-stage-editor-list"></div>
+          <button id="addProjectStageBtn" class="stage-add-btn" type="button">＋ 新增一個進度段落</button>
         </div>
       </section>
 
@@ -482,10 +465,14 @@
       <section id="progressCounterSection" class="subsection progress-counter-section detail-panel detail-panel-journal hidden">
         <div class="subsection-head progress-counter-head">
           <div>
-            <h3>進度計數</h3>
+            <h3>進度段落</h3>
             <p id="progressCounterHint">記住現在做到哪裡，不影響工時計時。</p>
           </div>
           <button id="progressCounterMilestoneBtn" class="mini-action-btn">記錄到里程碑</button>
+        </div>
+        <div class="progress-stage-meta">
+          <div><span>目前段落</span><strong id="progressStageName">—</strong></div>
+          <small id="progressStagePosition">第 1 / 1 段</small>
         </div>
 
         <div class="progress-counter-card">
@@ -516,7 +503,11 @@
               <option value="10">10</option>
             </select>
           </label>
-          <small>需要變更單位或目標，可到「作品資料 → 編輯」。</small>
+          <button id="progressStageCompleteBtn" class="stage-complete-btn" type="button">完成這一段 →</button>
+        </div>
+        <div id="progressAllStagesDone" class="progress-all-done hidden">
+          <strong>所有設定的段落都完成了 🎉</strong>
+          <button id="progressAddNextStageBtn" type="button">＋ 新增下一段</button>
         </div>
       </section>
 
@@ -888,7 +879,7 @@
     </div>
     <div class="settings-card">
       <h3>資料儲存狀態</h3>
-      <div class="storage-status-row"><span>版本</span><strong>YarnTime v25</strong></div>
+      <div class="storage-status-row"><span>版本</span><strong>YarnTime v26</strong></div>
       <div class="storage-status-row"><span>已使用空間</span><strong id="storageUsageText">計算中…</strong></div>
       <div class="storage-status-row"><span>持久儲存</span><strong id="storagePersistText">檢查中…</strong></div>
       <button id="requestPersistBtn" class="secondary-btn wide">提高資料保留機率</button>
