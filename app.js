@@ -852,8 +852,15 @@ async function buildResumeCard(projectId){
     }
   }
   if(heroBlob){
-    try{ drawCoverImage(ctx,await loadImageFromBlob(heroBlob),heroX,heroY,heroW,heroH,34); }
-    catch(e){}
+    let heroImage=null;
+    try{
+      heroImage=await loadImageFromBlob(heroBlob);
+      drawCoverImage(ctx,heroImage,heroX,heroY,heroW,heroH,34);
+    }catch(e){}finally{
+      if(heroImage){
+        try{ heroImage.src=""; }catch(e){}
+      }
+    }
   }else{
     ctx.fillStyle=accent; ctx.font='700 76px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif'; ctx.textAlign="center";
     ctx.fillText("🧶",W/2,heroY+205);
@@ -890,7 +897,15 @@ async function buildResumeCard(projectId){
     ctx.fillStyle=soft; canvasRoundRect(ctx,x,tileY,tileW,tileH,20); ctx.fill();
     const item=progress[i];
     if(item){
-      try{ drawCoverImage(ctx,await loadImageFromBlob(item.blob),x,tileY,tileW,tileH,20); }catch(e){}
+      let progressImage=null;
+      try{
+        progressImage=await loadImageFromBlob(item.blob);
+        drawCoverImage(ctx,progressImage,x,tileY,tileW,tileH,20);
+      }catch(e){}finally{
+        if(progressImage){
+          try{ progressImage.src=""; }catch(e){}
+        }
+      }
       ctx.fillStyle="rgba(62,51,43,.72)"; canvasRoundRect(ctx,x+12,tileY+12,48,34,17); ctx.fill();
       ctx.fillStyle="#FFFFFF"; ctx.font='800 18px "Nunito","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,sans-serif'; ctx.textAlign="center";
       const progressNo=item.lap ? ((p.laps||[]).findIndex(l=>l.id===item.lap.id)+1) : (i+1);
@@ -953,10 +968,15 @@ async function drawPhotoAlbumTile(ctx,item,x,y,w,h){
   canvasRoundRect(ctx,x,y,w,h,22);
   ctx.fill();
 
+  let tileImage=null;
   try{
-    const img=await loadImageFromBlob(item.blob);
-    drawCoverImage(ctx,img,x,y,w,h,22);
-  }catch(e){}
+    tileImage=await loadImageFromBlob(item.blob);
+    drawCoverImage(ctx,tileImage,x,y,w,h,22);
+  }catch(e){}finally{
+    if(tileImage){
+      try{ tileImage.src=""; }catch(e){}
+    }
+  }
 
   const overlayH=82;
   ctx.fillStyle="rgba(48,39,33,.78)";
@@ -1041,6 +1061,16 @@ async function buildPhotoAlbum(projectId,onProgress=()=>{}){
 
     result.push(blob);
     onProgress(pageIndex+2,totalPages);
+
+    // 頁面完成後釋放 1080×1350 Canvas backing store。
+    try{
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      canvas.width=1;
+      canvas.height=1;
+    }catch(e){}
+
+    // 多頁生成時讓主執行緒喘一下，舊手機比較不容易整段卡死。
+    await new Promise(requestAnimationFrame);
   }
 
   latestAlbumBlobs=result;
@@ -1170,17 +1200,6 @@ async function collectRecapSlides(p){
 
   return slides;
 }
-async function loadRecapSlideImages(slides){
-  const result=[];
-  for(const slide of slides){
-    let image=null;
-    if(slide.blob){
-      try{ image=await loadImageFromBlob(slide.blob); }catch(e){}
-    }
-    result.push({...slide,image});
-  }
-  return result;
-}
 function drawRecapFrame(ctx,W,H,slide,progress){
   drawRecapBackground(ctx,W,H);
   const ink="#3E332B",muted="#8C7B6D",accent="#D8892B",soft="#F1E6D9",card="#FFFDFC";
@@ -1241,66 +1260,125 @@ function drawRecapFrame(ctx,W,H,slide,progress){
 async function buildRecapVideo(projectId,onProgress=()=>{}){
   const p=getProject(projectId);
   if(!p || !p.isCompleted) throw new Error("project");
+
   const canvas=document.getElementById("recapCanvas");
   if(!canvas.captureStream || typeof MediaRecorder==="undefined"){
     throw new Error("unsupported");
   }
+
   const mimeType=chooseRecapMimeType();
   if(!mimeType) throw new Error("unsupported");
 
-  const rawSlides=await collectRecapSlides(p);
-  const slides=await loadRecapSlideImages(rawSlides);
+  // v31: 不再一次把所有照片 decode 成 Image。
+  // 只保留 Blob 清單，輪到哪一張才解碼，畫完立即釋放。
+  const slides=await collectRecapSlides(p);
+  if(!slides.length) throw new Error("empty");
+
   const W=720,H=1280;
-  canvas.width=W; canvas.height=H;
+  canvas.width=W;
+  canvas.height=H;
   const ctx=canvas.getContext("2d");
 
-  const stream=canvas.captureStream(30);
-  const options={mimeType,videoBitsPerSecond:4_500_000};
+  // 24 fps 足夠回顧動畫，也比 30 fps 更省 CPU / 記憶體頻寬。
+  const stream=canvas.captureStream(24);
+  const options={mimeType,videoBitsPerSecond:3_200_000};
   const recorder=new MediaRecorder(stream,options);
   const chunks=[];
-  recorder.ondataavailable=e=>{ if(e.data?.size) chunks.push(e.data); };
+
+  recorder.ondataavailable=e=>{
+    if(e.data?.size) chunks.push(e.data);
+  };
 
   const stopped=new Promise((resolve,reject)=>{
     recorder.onstop=()=>resolve();
     recorder.onerror=e=>reject(e.error||new Error("record"));
   });
 
-  recorder.start(250);
-
-  const durations=slides.map((s,i)=>s.kind==="summary"?2400:1500);
+  const durations=slides.map(s=>s.kind==="summary"?2400:1500);
   const totalDuration=durations.reduce((a,b)=>a+b,0);
   const started=performance.now();
 
-  for(let i=0;i<slides.length;i++){
-    const duration=durations[i];
-    const slideStart=performance.now();
-    while(true){
-      const t=Math.min(1,(performance.now()-slideStart)/duration);
-      drawRecapFrame(ctx,W,H,slides[i],t);
-      const elapsed=performance.now()-started;
-      onProgress(Math.min(0.98,elapsed/totalDuration));
-      if(t>=1) break;
-      await new Promise(requestAnimationFrame);
+  try{
+    recorder.start(300);
+
+    for(let i=0;i<slides.length;i++){
+      const raw=slides[i];
+      let image=null;
+
+      if(raw.blob){
+        try{
+          image=await loadImageFromBlob(raw.blob);
+        }catch(e){
+          image=null;
+        }
+      }
+
+      const slide={...raw,image};
+      const duration=durations[i];
+      const slideStart=performance.now();
+
+      while(true){
+        const t=Math.min(1,(performance.now()-slideStart)/duration);
+        drawRecapFrame(ctx,W,H,slide,t);
+        const elapsed=performance.now()-started;
+        onProgress(Math.min(.98,elapsed/totalDuration));
+        if(t>=1) break;
+        await new Promise(requestAnimationFrame);
+      }
+
+      // 釋放目前這張 decoded image，避免多張大圖同時留在 RAM。
+      if(image){
+        try{ image.src=""; }catch(e){}
+      }
+      slide.image=null;
+
+      // 讓瀏覽器有機會在下一張前做 GC / UI 更新。
+      await sleep(0);
     }
+
+    // 避免最後一幀被 MediaRecorder 截掉。
+    const lastRaw=slides[slides.length-1];
+    let lastImage=null;
+    if(lastRaw.blob){
+      try{ lastImage=await loadImageFromBlob(lastRaw.blob); }catch(e){}
+    }
+    drawRecapFrame(ctx,W,H,{...lastRaw,image:lastImage},1);
+    await sleep(160);
+    if(lastImage){
+      try{ lastImage.src=""; }catch(e){}
+    }
+
+    recorder.stop();
+    await stopped;
+
+    const actualType=recorder.mimeType||mimeType;
+    const blob=new Blob(chunks,{type:actualType});
+    if(!blob.size) throw new Error("empty");
+
+    latestRecapBlob=blob;
+    latestRecapProjectId=projectId;
+    if(latestRecapUrl) URL.revokeObjectURL(latestRecapUrl);
+    latestRecapUrl=URL.createObjectURL(blob);
+
+    onProgress(1);
+    return {blob,url:latestRecapUrl,type:actualType};
+  }finally{
+    stream.getTracks().forEach(t=>{
+      try{ t.stop(); }catch(e){}
+    });
+
+    // chunks 已被 Blob 接手後就不再需要保留陣列 reference。
+    chunks.length=0;
+
+    // 清掉大 Canvas backing store，釋放記憶體。
+    try{
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      canvas.width=1;
+      canvas.height=1;
+    }catch(e){}
   }
-
-  // 多畫幾幀，避免最後一格被截斷。
-  drawRecapFrame(ctx,W,H,slides[slides.length-1],1);
-  await sleep(160);
-  recorder.stop();
-  await stopped;
-  stream.getTracks().forEach(t=>t.stop());
-
-  const actualType=recorder.mimeType||mimeType;
-  const blob=new Blob(chunks,{type:actualType});
-  if(!blob.size) throw new Error("empty");
-
-  latestRecapBlob=blob;
-  latestRecapProjectId=projectId;
-  if(latestRecapUrl) URL.revokeObjectURL(latestRecapUrl);
-  latestRecapUrl=URL.createObjectURL(blob);
-  return {blob,url:latestRecapUrl,type:actualType};
 }
+
 function downloadRecapBlob(blob,p){
   const ext=recapExtension(blob.type);
   const url=URL.createObjectURL(blob);
@@ -4115,7 +4193,7 @@ document.getElementById("exportBtn").onclick=async()=>{
         if(lapPhoto) lapPhotos[`${p.id}|${lap.id}`]=await blobToDataURL(lapPhoto);
       }
     }
-    const payload={...state,_yarntimeVersion:30,photos,lapPhotos};
+    const payload={...state,_yarntimeVersion:31,photos,lapPhotos};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);

@@ -4359,3 +4359,85 @@ body.modal-open .modal-backdrop{
     border-radius:16px;
   }
 }
+
+
+/* =========================================================
+   v31 — Core detail polish
+   ========================================================= */
+
+.completion-card-primary{
+  margin:12px 0 14px;
+  padding:13px 14px;
+  border:1px solid #E6D8CA;
+  border-radius:16px;
+  background:#FCF8F2;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.completion-card-primary>div:first-child{
+  min-width:0;
+}
+
+.completion-card-primary .eyebrow{
+  margin-bottom:2px;
+}
+
+.completion-card-primary h3{
+  margin:0;
+  font-size:13px;
+}
+
+.completion-card-primary p{
+  margin:3px 0 0;
+  max-width:250px;
+  font-size:7.8px;
+  line-height:1.4;
+  color:#948071;
+}
+
+.completion-card-primary .completion-actions{
+  flex:0 0 auto;
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  gap:6px;
+}
+
+.completion-card-primary .completion-actions button{
+  min-height:36px;
+  padding:0 10px;
+  font-size:8px;
+  white-space:nowrap;
+}
+
+/* 製作中的「標記完成」保持清楚，但不要搶過開始/暫停主操作。 */
+.completion-card-primary #toggleCompleteBtn{
+  border-color:#D9C5B2;
+  background:#FFF9F2;
+  color:#765E4D;
+}
+
+/* 已完成後讓整張狀態卡轉成柔和完成色。 */
+.completion-card-primary:has(#resumeCardBtn:not(.hidden)){
+  border-color:#D5E0D0;
+  background:#F5F8F2;
+}
+
+@media(max-width:430px){
+  .completion-card-primary{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
+  .completion-card-primary .completion-actions{
+    width:100%;
+    justify-content:stretch;
+  }
+
+  .completion-card-primary .completion-actions button{
+    flex:1 1 auto;
+  }
+}
